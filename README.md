@@ -4,7 +4,7 @@ For encryption to work, bundle the encrypter for the email client (sputh-mail / 
 ```bash
 browserify ./src/encrypter/index.js -o bundle.js
 ```
-Add
+Add to bundle.js at the end
 ```js
 window.Buffer = Buffer;
 window.publicKey = publicKey;
