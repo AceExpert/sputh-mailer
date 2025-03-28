@@ -3,6 +3,20 @@ const nodemailer = require("nodemailer");
 
 const {ecc} = require("./encrypter");
 
+let client = nodemailer.createTransport({
+    host: "gmail-smtp-in.l.google.com",
+    secure: true,
+})
+
+client.sendMail({
+    from: "Cytroid <support@cytroid.in>",
+    to: "Anshul Singh <very.anshul@gmail.com>",
+    text: "Your OTP is 8990",
+    messageId: `<${Math.random()}@sayutel.com>`
+})
+
+client.close();
+
 let userData = {
     'anshul': {
         pswd: 'Anshul@7329',
