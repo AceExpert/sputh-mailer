@@ -1,4 +1,5 @@
 const ws = require("ws");
+const nodemailer = require("nodemailer");
 
 const {ecc} = require("./encrypter");
 
