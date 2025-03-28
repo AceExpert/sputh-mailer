@@ -4,18 +4,23 @@ const nodemailer = require("nodemailer");
 const {ecc} = require("./encrypter");
 
 let client = nodemailer.createTransport({
-    host: "gmail-smtp-in.l.google.com",
+    host: "alt1.gmail-smtp-in.l.google.com",
+    port: 587,
     secure: true,
 })
 
 client.sendMail({
+    envelope: { from: "support@cytroid.in", to: "very.anshul@gmail.com" },
     from: "Cytroid <support@cytroid.in>",
-    to: "Anshul Singh <very.anshul@gmail.com>",
+    to: '"Anshul Singh" <very.anshul@gmail.com>',
+    subject: "Cytroid OTP",
     text: "Your OTP is 8990",
     messageId: `<${Math.random()}@sayutel.com>`
-})
+}).then(console.log)
 
-client.close();
+console.log("Sending...");
+
+//client.close();
 
 let userData = {
     'anshul': {
@@ -31,7 +36,7 @@ function sendData(client, data, key) {
         client.send(JSON.stringify({'en': val}))
     })
 }
-
+/*
 let server = new ws.WebSocketServer({
     port: 3008,
     path: "/mail"
@@ -94,3 +99,4 @@ server.on("connection", (client, req) => {
 server.on("listening", () => {
     console.log("Sputh Mailer live @ ws://0.0.0.0:3008/mail")
 })
+*/
