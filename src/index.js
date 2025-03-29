@@ -5,12 +5,11 @@ const {ecc} = require("./encrypter");
 
 let client = nodemailer.createTransport({
     host: "alt1.gmail-smtp-in.l.google.com",
-    port: 587,
     secure: true,
+    direct: true,
 })
 
 client.sendMail({
-    envelope: { from: "support@cytroid.in", to: "very.anshul@gmail.com" },
     from: "Cytroid <support@cytroid.in>",
     to: '"Anshul Singh" <very.anshul@gmail.com>',
     subject: "Cytroid OTP",
