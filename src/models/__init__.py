@@ -1,1 +1,1 @@
-from models.channel import Channel
+from models.channel import Channel, DnsRecord

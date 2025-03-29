@@ -1,15 +1,20 @@
-import ws
 import json
+import smtplib
+import ssl
+import dkim
+
+import ws
 
 from typing import Any
 
 from crypt import ECC, private_key
-from models import Channel
-from utils import gen_token
+from models import Channel, DnsRecord
+from utils import gen_token, get_dns_record, get_email
 
 userData = {
     'anshul': {
         'pswd': 'Anshul@7329',
+        'name': 'Anshul Singh',
         'extern': {
             'domains': [{'name': 'gmail.com', 'key': ''}, {'name': 'kgpian.iitkgp.ac.in', 'key': ''}]
         }
@@ -23,6 +28,8 @@ class SputhMailer(ws.ServerSocket):
     def __init__(self):
         super().__init__()
         self.open_channels: dict[Any, Channel] = {}
+        self.ssl_ctx = ssl.SSLContext()
+        self.smtp_client = smtplib.SMTP()
         self.ecc = ECC()
 
     async def on_ready(self):
@@ -59,6 +66,11 @@ class SputhMailer(ws.ServerSocket):
                     elif fdata.action == 1:
                         await self.auth_req(channel, fdata)
 
+                    elif fdata.action == 2:
+                        await self.send_mail(channel, fdata)
+
+                    elif fdata.action == -1:
+                        await self.sign_up(channel, fdata)
         else:
             
             if data == 're':
@@ -72,6 +84,18 @@ class SputhMailer(ws.ServerSocket):
         else:
             await self.send_msg(channel.client, {'auth': 0}, channel.pub_key)
 
+    async def send_mail(self, channel: Channel, data: dict):
+        from_address = get_email(data['from'])
+        to_address = get_email(data['to'])
+        self.records: list[DnsRecord] = get_dns_record(to_address.split("@")[1], "MX")
+        self.smtp_client.connect(self.records[0].value[:-1])
+        self.smtp_client.helo(from_address.split('@')[1])
+        self.smtp_client.starttls(context = self.ssl_ctx)
+        self.smtp_client.send_message()
+
+    async def sign_up(channel, fdata):
+        pass
+
     async def send_msg(self, client, data, key):
         await client.send(data = {'en': self.ecc.encrypt(json.dumps(data), key)})
 
@@ -83,7 +107,11 @@ class SputhMailer(ws.ServerSocket):
 
     async def end_connection(self, client):
         try:
-            client.close()
+            await client.close()
+        except Exception:
+            pass
+
+        try:
             del self.open_channels[client.remote_address]
         except Exception:
             pass

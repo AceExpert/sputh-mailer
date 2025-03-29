@@ -9,3 +9,11 @@ class Channel:
     auth: bool = False
     pub_key: bytes = None
     current_key: bytes = None
+
+@dataclass
+class DnsRecord:
+    host: str
+    value: str
+    label: str
+    priority: int
+    ttl: int
