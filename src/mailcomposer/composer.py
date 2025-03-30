@@ -27,14 +27,16 @@ class MailComposer:
             self.content.add_header("Content-Type", "text/plain", charset="UTF-8")
             self.content.add_header("Content-Transfer-Encoding", "quoted-printable")
             self.content.set_payload(content)
+        self.message.attach(self.content)
         return self
 
     def set_html(self, content: 'str | None'):
         if content:
             self.html = EmailMessage()
             self.html.add_header("Content-Type", "text/html", charset="UTF-8")
-            self.content.add_header("Content-Transfer-Encoding", "quoted-printable")
-            self.content.set_payload(f"<div>{content}</div>")
+            self.html.add_header("Content-Transfer-Encoding", "quoted-printable")
+            self.html.set_payload(f"<div>{content}</div>")
+        self.message.attach(self.html)
         return self
     
     def sign(self, domain: str, selector: str, identity: 'str | None' = None):
