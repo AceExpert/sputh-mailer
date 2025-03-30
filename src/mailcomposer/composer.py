@@ -50,7 +50,7 @@ class MailComposer:
                 identity = identity.encode() if identity else None,
                 include_headers = [b'From', b'To', b'Message-ID'] + ([b'Subject'] if self._subj else [])
             )
-            self.message.add_header('DKIM-Signature', sgn[16:])
+            self.message.add_header('DKIM-Signature', sgn[16:].decode())
 
     def get_bytes(self):
         return self.message.as_bytes()
