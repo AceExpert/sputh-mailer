@@ -1,12 +1,12 @@
 import asyncio
 
-from typing import Callable, Coroutine, Self
+from typing import Callable, Coroutine
 
 class Interval:
     
     loop: 'asyncio.AbstractEventLoop | None'
     
-    def __init__(self, time: float, callback: Callable[[Self], Coroutine], params: tuple = (), once_only: bool = False, start_now: bool = False):
+    def __init__(self, time: float, callback: Callable[[], Coroutine], params: tuple = (), once_only: bool = False, start_now: bool = False):
         self.time = time
         self.callback = callback
         self.task: 'asyncio.Task | None' = None

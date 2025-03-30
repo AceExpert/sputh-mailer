@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Coroutine, Callable, Self
+from typing import Any
 
 @dataclass
 class Channel:
