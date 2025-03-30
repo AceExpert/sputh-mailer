@@ -29,7 +29,7 @@ class MailComposer:
             self.content.set_payload(content)
         return self
 
-    def set_html(self, content: str | None):
+    def set_html(self, content: 'str | None'):
         if content:
             self.html = EmailMessage()
             self.html.add_header("Content-Type", "text/html", charset="UTF-8")
@@ -37,7 +37,7 @@ class MailComposer:
             self.content.set_payload(f"<div>{content}</div>")
         return self
     
-    def sign(self, domain: str, selector: str, identity: str | None = None):
+    def sign(self, domain: str, selector: str, identity: 'str | None' = None):
         with open('/home/keys/key0/rsa.private', 'r') as keyfile:
             key = keyfile.read()
             sgn = dkim.sign(

@@ -4,12 +4,12 @@ from typing import Callable, Coroutine, Self
 
 class Interval:
     
-    loop: asyncio.AbstractEventLoop | None
+    loop: 'asyncio.AbstractEventLoop | None'
     
     def __init__(self, time: float, callback: Callable[[Self], Coroutine], params: tuple = (), once_only: bool = False, start_now: bool = False):
         self.time = time
         self.callback = callback
-        self.task: asyncio.Task | None = None
+        self.task: 'asyncio.Task | None' = None
         self.once_only: bool = once_only
         self.start_now: bool = start_now
         self.params = params
@@ -18,7 +18,7 @@ class Interval:
         except RuntimeError:
             self.loop = None
 
-    def start(self, loop: asyncio.AbstractEventLoop | None = None):
+    def start(self, loop: 'asyncio.AbstractEventLoop | None' = None):
         self.loop = self.loop or loop
         self.task = self.loop.create_task(self._task_fn())
 
