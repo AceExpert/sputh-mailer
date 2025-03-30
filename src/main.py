@@ -54,7 +54,7 @@ class SputhMailer(ws.ServerSocket):
             self.loop.create_task(self.on_client_message(self.open_channels[message.client.remote_address], message))
 
     async def on_client_message(self, channel: Channel, message):
-        print(message)
+        #print(message)
         channel.stale_timer.restart()
         data = message.data
         key = channel.current_key or private_key
@@ -63,7 +63,7 @@ class SputhMailer(ws.ServerSocket):
 
             if 'en' in data:
                 fdata = ws.Object(json.loads(self.ecc.decrypt(data.en, key)))
-                print(fdata)
+                #print(fdata)
                 if 'action' in fdata:
                     
                     if fdata.action == 0:
@@ -88,11 +88,11 @@ class SputhMailer(ws.ServerSocket):
         if data.user in userData and userData[data.user]['pswd'] == data.pswd:
             channel.auth = True
             channel.user = data.user
-            channel.info.update(ws.Object({
+            channel.info = ws.Object({
                 'user': data.user,
                 'name': userData[data.user]['name'],
                 'extern': userData[data.user]['extern']
-            }))
+            })
             await self.send_msg(channel.client, {'auth': 1}, channel.pub_key)
         else:
             await self.send_msg(channel.client, {'auth': 0}, channel.pub_key)

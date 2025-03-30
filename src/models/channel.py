@@ -11,7 +11,7 @@ class Channel:
     current_key: bytes = None
     stale_timer: None = None
     hb_timer: None = None
-    info: dict = {}
+    info = None
 
 @dataclass
 class DnsRecord:
