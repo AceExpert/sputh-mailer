@@ -2,13 +2,14 @@ import json
 import smtplib
 import ssl
 import dkim
+import asyncio
 
 import ws
 
 from typing import Any
 
 from crypt import ECC, private_key
-from models import Channel, DnsRecord
+from models import Channel, DnsRecord, Interval
 from utils import gen_token, get_dns_record, get_email
 
 userData = {
@@ -37,17 +38,21 @@ class SputhMailer(ws.ServerSocket):
 
     async def on_connect(self, client, path):
         print("Client connected @", client.remote_address)
+        interval = Interval(150, self.end_connection, (client,))
         self.open_channels[client.remote_address] = Channel(
             client = client, 
             session_token = gen_token(), 
-            auth = False
+            auth = False,
+            stale_timer = interval
         )
+        interval.start(self.loop)
 
     async def on_message(self, message):
         if message.client.remote_address in self.open_channels:
             self.loop.create_task(self.on_client_message(self.open_channels[message.client.remote_address], message))
 
     async def on_client_message(self, channel: Channel, message):
+        channel.stale_timer.restart()
         data = message.data
         key = channel.current_key or private_key
 
@@ -112,6 +117,7 @@ class SputhMailer(ws.ServerSocket):
             pass
 
         try:
+            self.open_channels[client.remote_address].stale_timer.stop()
             del self.open_channels[client.remote_address]
         except Exception:
             pass

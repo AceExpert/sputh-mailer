@@ -2,3 +2,4 @@ node_modules/
 bundle.js
 bundle2.js
 __pycache__/
+test.py

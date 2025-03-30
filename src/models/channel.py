@@ -9,6 +9,7 @@ class Channel:
     auth: bool = False
     pub_key: bytes = None
     current_key: bytes = None
+    stale_timer: None = None
 
 @dataclass
 class DnsRecord:
