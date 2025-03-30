@@ -10,7 +10,7 @@ class MailComposer:
         self.message = EmailMessage()
         self._subj = subject
         self.message.add_header("From", f'{name} <{user}@{domain}>')
-        self.message.add_header("To", f'{to.split('@')[0]} <{to}>')
+        self.message.add_header("To", f'{to.split("@")[0]} <{to}>')
         self.message
         if subject:
             self.message.add_header("Subject", subject)
