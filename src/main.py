@@ -75,10 +75,10 @@ class SputhMailer(ws.ServerSocket):
                         await self.auth_req(channel, fdata)
 
                     elif fdata.action == 2:
-                        await self.send_mail(channel, fdata)
+                        await self.send_mail(channel, fdata['data'])
 
                     elif fdata.action == -1:
-                        await self.sign_up(channel, fdata)
+                        await self.sign_up(channel, fdata['data'])
         else:
             
             if data == 're':
@@ -140,4 +140,4 @@ class SputhMailer(ws.ServerSocket):
             pass
 
 server = SputhMailer()
-server.listen("cybertron", 3008)
+server.listen("0.0.0.0", 3008)
