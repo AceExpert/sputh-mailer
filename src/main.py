@@ -107,7 +107,7 @@ class SputhMailer(ws.ServerSocket):
         mail.sign('cytroid.in', 'dragon')
         self.records: list[DnsRecord] = get_dns_record(to_address.split("@")[1], "MX")
         print(self.records[0].value[:-1])
-        self.smtp_client.connect(self.records[0].value[:-1])
+        self.smtp_client.connect(max(self.records, key = lambda rec: rec.priority).value[:-1])
         self.smtp_client.helo(from_dom)
         self.smtp_client.starttls(context = self.ssl_ctx)
         self.smtp_client.sendmail(f'{channel.info.user}@{from_dom}', to_address, mail.get_bytes())

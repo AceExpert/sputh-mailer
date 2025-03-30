@@ -35,7 +35,7 @@ def get_dns_record(domain: str, record: str) -> list[DnsRecord]:
                             value = rec[-1], 
                             label = rec[3], 
                             ttl = int(rec[1]), 
-                            priority = rec[-2] if rec[3] == 'MX' else -1
+                            priority = int(rec[-2]) if rec[3] == 'MX' else -1
                         ), records
         )]
     else:
