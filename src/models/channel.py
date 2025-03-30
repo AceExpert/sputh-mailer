@@ -10,6 +10,8 @@ class Channel:
     pub_key: bytes = None
     current_key: bytes = None
     stale_timer: None = None
+    hb_timer: None = None
+    info: dict = {}
 
 @dataclass
 class DnsRecord:

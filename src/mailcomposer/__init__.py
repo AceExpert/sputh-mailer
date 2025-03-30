@@ -1,0 +1,1 @@
+from mailcomposer.composer import MailComposer

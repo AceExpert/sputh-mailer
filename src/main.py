@@ -1,8 +1,6 @@
 import json
 import smtplib
 import ssl
-import dkim
-import asyncio
 
 import ws
 
@@ -11,6 +9,7 @@ from typing import Any
 from crypt import ECC, private_key
 from models import Channel, DnsRecord, Interval
 from utils import gen_token, get_dns_record, get_email
+from mailcomposer import MailComposer
 
 userData = {
     'anshul': {
@@ -38,20 +37,24 @@ class SputhMailer(ws.ServerSocket):
 
     async def on_connect(self, client, path):
         print("Client connected @", client.remote_address)
-        interval = Interval(150, self.end_connection, (client,))
+        hbtimeout = Interval(150, self.end_connection, (client,), once_only = True)
+        hbinterval = Interval(120, self.send_hb, (client,))
         self.open_channels[client.remote_address] = Channel(
-            client = client, 
+            client = client,
             session_token = gen_token(), 
             auth = False,
-            stale_timer = interval
+            stale_timer = hbtimeout,
+            hb_timer = hbinterval
         )
-        interval.start(self.loop)
+        hbinterval.start(self.loop)
+        hbtimeout.start(self.loop)
 
     async def on_message(self, message):
         if message.client.remote_address in self.open_channels:
             self.loop.create_task(self.on_client_message(self.open_channels[message.client.remote_address], message))
 
     async def on_client_message(self, channel: Channel, message):
+        print(message)
         channel.stale_timer.restart()
         data = message.data
         key = channel.current_key or private_key
@@ -85,18 +88,28 @@ class SputhMailer(ws.ServerSocket):
         if data.user in userData and userData[data.user]['pswd'] == data.pswd:
             channel.auth = True
             channel.user = data.user
+            channel.info.update(ws.Object({
+                'user': data.user,
+                'name': userData[data.user]['name'],
+                'extern': userData[data.user]['extern']
+            }))
             await self.send_msg(channel.client, {'auth': 1}, channel.pub_key)
         else:
             await self.send_msg(channel.client, {'auth': 0}, channel.pub_key)
 
     async def send_mail(self, channel: Channel, data: dict):
-        from_address = get_email(data['from'])
-        to_address = get_email(data['to'])
+        #from_address = get_email(data['from'])
+        from_dom = data['fromDomain'][0]
+        to_address = get_email(data['toAddr'])
+        mail = MailComposer(channel.info.name, channel.info.user, from_dom, to = to_address, subject = data.get("subject", None), content = data.get('content', None))
+        mail.set_html(data['html'] if 'html' in data and data.get('html', None) else data.get('content', None))
+        mail.sign('cytroid.in', 'dragon', to_address)
         self.records: list[DnsRecord] = get_dns_record(to_address.split("@")[1], "MX")
         self.smtp_client.connect(self.records[0].value[:-1])
-        self.smtp_client.helo(from_address.split('@')[1])
+        self.smtp_client.helo(from_dom)
         self.smtp_client.starttls(context = self.ssl_ctx)
-        self.smtp_client.send_message()
+        self.smtp_client.sendmail(f'{channel.info.user}@{from_dom}', to_address, mail.get_bytes())
+        self.smtp_client.close()
 
     async def sign_up(channel, fdata):
         pass
@@ -110,6 +123,9 @@ class SputhMailer(ws.ServerSocket):
     async def on_close(self, client, code, reason):
         await self.end_connection(client)
 
+    async def send_hb(self, client):
+        await client.send(content = ".")
+
     async def end_connection(self, client):
         try:
             await client.close()
@@ -118,6 +134,7 @@ class SputhMailer(ws.ServerSocket):
 
         try:
             self.open_channels[client.remote_address].stale_timer.stop()
+            self.open_channels[client.remote_address].hb_timer.stop()
             del self.open_channels[client.remote_address]
         except Exception:
             pass
