@@ -103,7 +103,7 @@ class SputhMailer(ws.ServerSocket):
         to_address = get_email(data['toAddr'])[0]
         mail = MailComposer(channel.info.name, channel.info.user, from_dom, to = to_address, subject = data.get("subject", None), content = data.get('content', None))
         mail.set_html(data['html'] if 'html' in data and data.get('html', None) else data.get('content', None))
-        mail.sign('cytroid.in', 'dragon', to_address)
+        mail.sign('cytroid.in', 'dragon', f'{channel.info.user}@{from_dom}')
         self.records: list[DnsRecord] = get_dns_record(to_address.split("@")[1], "MX")
         self.smtp_client.connect(self.records[0].value[:-1])
         self.smtp_client.helo(from_dom)
