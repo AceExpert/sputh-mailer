@@ -35,7 +35,7 @@ class MailComposer:
             self.html = EmailMessage()
             self.html.add_header("Content-Type", "text/html", charset="UTF-8")
             self.html.add_header("Content-Transfer-Encoding", "quoted-printable")
-            self.html.set_payload(f'<div>{content}</div><br></br><br></br><div><p style=3D"color:grey;">Sent using Sputh Mail by Sayutel</p></div>')
+            self.html.set_payload(f'<div>{content}</div><br></br><div><p style=3D"color:grey;">Sent using Sputh Mail by Sayutel</p></div>')
         self.message.attach(self.html)
         return self
     

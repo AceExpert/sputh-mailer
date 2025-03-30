@@ -29,8 +29,8 @@ class SputhMailer(ws.ServerSocket):
         super().__init__()
         self.open_channels: dict[Any, Channel] = {}
         self.ssl_ctx = ssl.SSLContext()
-        self.ssl_ctx.load_cert_chain('/etc/letsencrypt/live/cytroid.in/fullchain.pem', '/etc/letsencrypt/live/cytroid.in/privkey.pem')
-        self.smtp_client = smtplib.SMTP()
+        #self.ssl_ctx.load_cert_chain('/etc/letsencrypt/live/cytroid.in/fullchain.pem', '/etc/letsencrypt/live/cytroid.in/privkey.pem')
+        self.smtp_client: smtplib.SMTP = None
         self.ecc = ECC()
 
     async def on_ready(self):
@@ -104,13 +104,13 @@ class SputhMailer(ws.ServerSocket):
         to_address = get_email(data['toAddr'])[0]
         mail = MailComposer(channel.info.name, channel.info.user, from_dom, to = to_address, subject = data.get("subject", None), content = data.get('content', None))
         mail.set_html(data['html'] if 'html' in data and data.get('html', None) else data.get('content', None))
-        mail.sign('cytroid.in', 'dragon')
+        print(f'{channel.info.user}@{from_dom}')
+        mail.sign('cytroid.in', 'dragon', )
         self.records: list[DnsRecord] = get_dns_record(to_address.split("@")[1], "MX")
-        print(self.records[0].value[:-1])
         self.smtp_client = smtplib.SMTP(max(self.records, key = lambda rec: rec.priority).value[:-1], local_hostname = from_dom)
         self.smtp_client.starttls(context = self.ssl_ctx)
         self.smtp_client.sendmail(f'{channel.info.user}@{from_dom}', to_address, mail.get_bytes())
-        self.smtp_client.close()
+        self.smtp_client.quit()
 
     async def sign_up(channel, fdata):
         pass
