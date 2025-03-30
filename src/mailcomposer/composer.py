@@ -11,7 +11,7 @@ class MailComposer:
         self._subj = subject
         self.message.add_header("From", f'{name} <{user}@{domain}>')
         self.message.add_header("To", f'{to.split("@")[0]} <{to}>')
-        self.message
+        self.message.add_header("Message-ID", f"<{gen_token(10)}@{domain}>")
         if subject:
             self.message.add_header("Subject", subject)
         self._bds = [gen_token(5)]
@@ -35,7 +35,7 @@ class MailComposer:
             self.html = EmailMessage()
             self.html.add_header("Content-Type", "text/html", charset="UTF-8")
             self.html.add_header("Content-Transfer-Encoding", "quoted-printable")
-            self.html.set_payload(f'<div>{content}</div><br></br><br></br><div><p style="color:grey;">Sent using Sputh Mail by Sayutel</p></div>')
+            self.html.set_payload(f'<div>{content}</div><br></br><br></br><div><p style=3D"color:grey;">Sent using Sputh Mail by Sayutel</p></div>')
         self.message.attach(self.html)
         return self
     
