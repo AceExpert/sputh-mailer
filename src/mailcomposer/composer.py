@@ -6,27 +6,29 @@ from utils import gen_token
 
 class MailComposer:
     
-    def __init__(self, name, user, domain, to, cc = [], bcc = [], subject = None, content = None):
+    def __init__(self, name, user, domain, to: str, cc = [], bcc = [], subject = None, content = None):
         self.message = EmailMessage()
         self._subj = subject
+        self._cont = content.strip() if content else ''
         self.message.add_header("From", f'{name} <{user}@{domain}>')
-        self.message.add_header("To", f'{to.split("@")[0]} <{to}>')
+        self.message.add_header("To", to.split("@")[0] + f' <{to}>')
         self.message.add_header("Message-ID", f"<{gen_token(10)}@{domain}>")
         if subject:
             self.message.add_header("Subject", subject)
         self._bds = [gen_token(5)]
-        self.message.add_header("Content-Type", "multipart/alternative", boundary=f'"{self._bds[0]}"')
+        self.message.add_header("Content-Type", "multipart/alternative", boundary=f'{self._bds[0]}')
         self.content = None
         self.html = None
         if content:
-            self.set_content(content)
+            self.set_content(self._cont)
 
     def set_content(self, content: str):
         if content:
+            self._cont = content.strip()
             self.content = EmailMessage()
             self.content.add_header("Content-Type", "text/plain", charset="UTF-8")
             self.content.add_header("Content-Transfer-Encoding", "quoted-printable")
-            self.content.set_payload(content)
+            self.content.set_payload(self._cont)
         self.message.attach(self.content)
         return self
 
@@ -35,7 +37,7 @@ class MailComposer:
             self.html = EmailMessage()
             self.html.add_header("Content-Type", "text/html", charset="UTF-8")
             self.html.add_header("Content-Transfer-Encoding", "quoted-printable")
-            self.html.set_payload(f'<div>{content}</div><br></br><div><p style=3D"color:grey;">Sent using Sputh Mail by Sayutel</p></div>')
+            self.html.set_payload(f'<div>{content}</div><br/><div><p style=3D"color:rgba(77, 17, 105, 0.4);">Sent using SayuMail by Sayutel</p></div>')
         self.message.attach(self.html)
         return self
     
