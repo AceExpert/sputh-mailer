@@ -29,6 +29,7 @@ class SputhMailer(ws.ServerSocket):
         super().__init__()
         self.open_channels: dict[Any, Channel] = {}
         self.ssl_ctx = ssl.SSLContext()
+        self.ssl_ctx.load_cert_chain('/etc/letsencrypt/live/cytroid.in/fullchain.pem', '/etc/letsencrypt/live/cytroid.in/privkey.pem')
         self.smtp_client = smtplib.SMTP()
         self.ecc = ECC()
 
@@ -105,6 +106,7 @@ class SputhMailer(ws.ServerSocket):
         mail.set_html(data['html'] if 'html' in data and data.get('html', None) else data.get('content', None))
         mail.sign('cytroid.in', 'dragon')
         self.records: list[DnsRecord] = get_dns_record(to_address.split("@")[1], "MX")
+        print(self.records[0].value[:-1])
         self.smtp_client.connect(self.records[0].value[:-1])
         self.smtp_client.helo(from_dom)
         self.smtp_client.starttls(context = self.ssl_ctx)
