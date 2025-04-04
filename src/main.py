@@ -6,6 +6,7 @@ import ws
 
 from typing import Any
 
+from db import EmailManager
 from crypt import ECC, private_key
 from models import Channel, DnsRecord, Interval
 from utils import gen_token, get_dns_record, get_email
@@ -17,7 +18,7 @@ userData = {
         'name': 'Anshul Singh',
         'extern': {
             'domains': [{'name': 'gmail.com', 'key': ''}, {'name': 'kgpian.iitkgp.ac.in', 'key': ''}]
-        }
+        },
     }
 }
 
@@ -44,7 +45,7 @@ class SputhMailer(ws.ServerSocket):
             session_token = gen_token(), 
             auth = False,
             stale_timer = hbtimeout,
-            hb_timer = hbinterval
+            hb_timer = hbinterval,
         )
         hbinterval.start(self.loop)
         hbtimeout.start(self.loop)
@@ -63,7 +64,7 @@ class SputhMailer(ws.ServerSocket):
 
             if 'en' in data:
                 fdata = ws.Object(json.loads(self.ecc.decrypt(data.en, key)))
-                #print(fdata)
+                print(fdata)
                 if 'action' in fdata:
                     
                     if fdata.action == 0:
@@ -76,6 +77,9 @@ class SputhMailer(ws.ServerSocket):
 
                     elif fdata.action == 2:
                         await self.send_mail(channel, fdata['data'])
+
+                    elif fdata.action == 3:
+                        await self.fetch_mails(channel, fdata['data'])
 
                     elif fdata.action == -1:
                         await self.sign_up(channel, fdata['data'])
@@ -93,9 +97,16 @@ class SputhMailer(ws.ServerSocket):
                 'name': userData[data.user]['name'],
                 'extern': userData[data.user]['extern']
             })
+            channel.manager = EmailManager(data.user)
             await self.send_msg(channel.client, {'auth': 1}, channel.pub_key)
         else:
             await self.send_msg(channel.client, {'auth': 0}, channel.pub_key)
+
+    async def fetch_mails(self, channel: Channel, data: dict):
+        folder: str = data.folder
+        category = data.get('category', 'all')
+        mails = channel.manager.get_mails(folder, data.get('limit', 50), data.get('offset', 0))
+        await self.send_msg(channel.client, {'folder': folder, 'category': category, 'mails': mails, 'count': len(mails), 'start': mails[-1]['index'] if len(mails) else -1, 'fetch_id': data.get('id', None), 'offset': data.get('offset', 0)}, channel.pub_key)
 
     async def send_mail(self, channel: Channel, data: dict):
         #from_address = get_email(data['from'])
@@ -105,10 +116,19 @@ class SputhMailer(ws.ServerSocket):
         mail.set_html(data['html'] if 'html' in data and data.get('html', None) else data.get('content', None))
         mail.sign(data['sign'][0], 'dragon')
         self.records: list[DnsRecord] = get_dns_record(to_address.split("@")[1], "MX")
-        self.smtp_client = smtplib.SMTP(max(self.records, key = lambda rec: rec.priority).value[:-1], local_hostname = from_dom)
-        self.smtp_client.starttls(context = self.ssl_ctx)
-        self.smtp_client.sendmail(f'{channel.info.user}@{from_dom}', to_address, mail.get_bytes())
-        self.smtp_client.quit()
+        if not self.records:
+            return await self.send_msg(channel.client, {'error': 1, 'msg': "domain does not accept emails", 'resp': data.get('id', None)}, channel.pub_key)
+        try:
+            self.smtp_client = smtplib.SMTP(max(self.records, key = lambda rec: rec.priority).value[:-1], local_hostname = from_dom)
+            self.smtp_client.starttls(context = self.ssl_ctx)
+            self.smtp_client.sendmail(f'{channel.info.user}@{from_dom}', to_address, mail.get_bytes())
+            self.smtp_client.quit()
+            channel.manager.add_mail('sent', mail, f'{channel.info.user}@{from_dom}', to_address)
+            await self.send_msg(channel.client, {'error': 0, 'msg': "success", 'resp': data.get('id', None)}, channel.pub_key)
+        except smtplib.SMTPResponseException as e:
+            await self.send_msg(channel.client, {'error': 2, 'code': e.smtp_code, 'msg': e.smtp_error, 'resp': data.get('id', None)}, channel.pub_key)
+        except smtplib.SMTPException as e:
+            await self.send_msg(channel.client, {'error': 6, 'msg': e.strerror, 'resp': data.get('id', None)}, channel.pub_key)
 
     async def sign_up(channel, fdata):
         pass

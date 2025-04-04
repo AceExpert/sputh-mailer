@@ -3,6 +3,9 @@ import string, random, re, subprocess
 from models import DnsRecord
 from utils.timers import interval, timeout
 
+email_pattern: str = r"[a-zA-Z0-9\$%\-#&\.]+@(?:[a-zA-Z0-9\-]+\.)*[a-zA-Z0-9\-]+\.(?:[a-zA-Z0-9\-]+\.)?[a-zA-Z0-9\-]+"
+email_list_pat: str = r'(?:[^\s]*' + email_pattern + r'[^\s]*\s*,?\s*)*'
+
 def gen_token(length: int = 10) -> str:
 
     return "".join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
@@ -40,6 +43,12 @@ def get_dns_record(domain: str, record: str) -> list[DnsRecord]:
         )]
     else:
         return []
-    
+
 def get_email(text: str) -> list[str]:
-    return re.findall(r"[a-zA-Z0-9\$%\-#&\.]+@(?:[a-zA-Z0-9\-]+\.)*[a-zA-Z0-9\-]+\.(?:[a-zA-Z0-9\-]+\.)?[a-zA-Z0-9\-]+", text)
+    return re.findall(email_pattern, text)
+
+def get_folder_path(user: str, folder: str) -> str:
+    return re.findall(r"(.+)(?:[/\\].+){3}", __file__)[0] + f'/drive/{user}/emails/{folder}/{folder}.db'
+
+def get_name_from_header(txt: str) -> str:
+    return re.sub(email_list_pat, '', txt).strip()
