@@ -47,6 +47,11 @@ class SimpleEmail:
                 from_name = ''
         return from_name
         
+@dataclass
+class SimpleEmailBody:
+    content_type: str
+    content_transfer: str
+    content: str
 
 class EmailManager:
     
@@ -62,19 +67,37 @@ class EmailManager:
         self.email_parser = BytesParser()
 
     def add_mail(self, folder: str, mail: EmailMessage, return_path: str, to_real: str):
+        bodies = self.get_body(mail)
+        fbody: str = None
+        
+        for body in bodies:
+            if body.content_type == 'text/html':
+                fbody = body.content
+                break
+
+        if not fbody and bodies:
+            fbody = bodies[0].content
+
         cursor: sqlite3.Cursor = self.folders[folder].cursor
         cursor.execute(
             """INSERT INTO table VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""", 
             (self.folders[folder].count() + 1, 
              mail.get('From', None), mail.get('To', None), to_real,
              mail.get("Subject", None), mail.get("Date", None), mail.get("Message-ID", None), 
-             return_path, ", ".join(self._get_sign(mail)), None, None, mail.as_bytes()
+             return_path, ", ".join(self.get_sign(mail)), fbody, None, mail.as_bytes()
              )
         )
         self.folders[folder].db.commit()
         self.folders[folder]._count += 1
-        
-    def _get_sign(self, email: EmailMessage):
+    
+    def get_mails(self, folder: str, limit: int = 50, offset: int = 0):
+        data = self.folders[folder].cursor.execute(
+            """SELECT * from emails ORDER BY srno DESC LIMIT ? OFFSET ?;""", (50, 0)
+        ).fetchall()
+
+        return [*map(SimpleEmail.from_mail, data)]
+
+    def get_sign(self, email: EmailMessage):
         _sign_doms = []
         for signs in email.get_all('DKIM-Signature'):
             dom = re.findall(r"[\s\n\t]d=(.+?);?[\s\n\t]", ' '+signs+' ')
@@ -83,9 +106,16 @@ class EmailManager:
 
         return _sign_doms
     
-    def get_mails(self, folder: str, limit: int = 50, offset: int = 0):
-        data = self.folders[folder].cursor.execute(
-            """SELECT * from emails ORDER BY srno DESC LIMIT ? OFFSET ?;""", (50, 0)
-        ).fetchall()
-
-        return [*map(SimpleEmail.from_mail, data)]
+    def get_body(self, email: EmailMessage, _bodies: list[SimpleEmailBody] = []) -> list[SimpleEmailBody]:
+        bodies: list[SimpleEmailBody] = _bodies
+        if email.get_content_type() not in ['text/plain', 'text/html']:
+            for payload in email.get_payload():
+                self.get_body(payload, bodies)
+        
+        else:
+            bodies.append(SimpleEmailBody(
+                    content = email.get_payload()[-1] if email.get_payload() else None,
+                    content_type = email.get_content_type(),
+                    content_transfer = email.get('Content-Transfer-Encoding', None)
+                )
+            )

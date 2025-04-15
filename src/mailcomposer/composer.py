@@ -1,4 +1,5 @@
 import dkim
+import quopri
 
 from email.message import EmailMessage
 
@@ -28,7 +29,7 @@ class MailComposer:
             self.content = EmailMessage()
             self.content.add_header("Content-Type", "text/plain", charset="UTF-8")
             self.content.add_header("Content-Transfer-Encoding", "quoted-printable")
-            self.content.set_payload(self._cont)
+            self.content.set_payload(quopri.encodestring(self._cont).decode())
         self.message.attach(self.content)
         return self
 
@@ -37,7 +38,9 @@ class MailComposer:
             self.html = EmailMessage()
             self.html.add_header("Content-Type", "text/html", charset="UTF-8")
             self.html.add_header("Content-Transfer-Encoding", "quoted-printable")
-            self.html.set_payload(f'<div><div>{content}</div><br/><div><p style=3D"color:mediumpurple;">Sent using SayuMail by Sayutel</p></div></div>')
+            self.html.set_payload(quopri.encodestring(
+                '''<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap"/><style>*{margin:0px;padding:0px;box-sizing:border-box;}</style><div style="font-family:Figtree, Calibri;font-size:15px;font-weight:400;"><div><div>''' + content + '''</div><br/><br/><div><p style="color:mediumpurple;margin:5px 0px;">Sent using SayuMail by Sayutel</p></div></div></div>'''
+            ).decode())
         self.message.attach(self.html)
         return self
     
