@@ -1,4 +1,4 @@
-#!/usr/bin/python3 main.py
+#! /usr/bin/python3
 import smtplib
 import sys
 import enum
@@ -76,3 +76,4 @@ for domain, emails in segmented_mails.items():
     records = get_dns_record(domain, 'MX')
     client = smtplib.SMTP(min(records, key = lambda rec: rec.priority).value[:-1], local_hostname='sayutel.com')
     client.sendmail(data['from'], emails, composer.get_bytes())
+    client.close()
