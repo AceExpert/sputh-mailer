@@ -29,7 +29,6 @@ class SputhMailer(ws.ServerSocket):
     def __init__(self):
         super().__init__()
         self.open_channels: dict[Any, Channel] = {}
-        self.ssl_ctx = ssl.SSLContext()
         self.smtp_client: smtplib.SMTP = None
         self.ecc = ECC()
 
@@ -119,11 +118,11 @@ class SputhMailer(ws.ServerSocket):
         if not self.records:
             return await self.send_msg(channel.client, {'error': 1, 'msg': "domain does not accept emails", 'resp': data.get('id', None)}, channel.pub_key)
         try:
-            self.smtp_client = smtplib.SMTP(max(self.records, key = lambda rec: rec.priority).value[:-1], local_hostname = from_dom)
-            self.smtp_client.starttls(context = self.ssl_ctx)
+            self.smtp_client = smtplib.SMTP(min(self.records, key = lambda rec: rec.priority).value[:-1], local_hostname = from_dom)
+            #self.smtp_client.starttls()
             self.smtp_client.sendmail(f'{channel.info.user}@{from_dom}', to_address, mail.get_bytes())
             self.smtp_client.quit()
-            channel.manager.add_mail('sent', mail, f'{channel.info.user}@{from_dom}', to_address)
+            channel.manager.add_mail('sent', mail.message, f'{channel.info.user}@{from_dom}', to_address)
             await self.send_msg(channel.client, {'error': 0, 'msg': "success", 'resp': data.get('id', None)}, channel.pub_key)
         except smtplib.SMTPResponseException as e:
             await self.send_msg(channel.client, {'error': 2, 'code': e.smtp_code, 'msg': e.smtp_error, 'resp': data.get('id', None)}, channel.pub_key)

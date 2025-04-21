@@ -11,7 +11,7 @@ class State(enum.Enum):
     start = 0
     value = 1
 
-opts = ['--to', '-t', '--from', '-f', '--name', '-n', '--message', '-m', '--subject', '-s', '--domain', '-d', '-w']
+opts = ['--to', '-t', '--from', '-f', '--name', '-n', '--message', '-m', '--subject', '-s', '--domain', '-d', '-w', '--folder', '-l']
 
 args = sys.argv
 
@@ -25,6 +25,7 @@ data = {
     'message': '',
     'subject': '',
     'watermark': False,
+    'folder': 'sent',
 }
 
 for arg in args:
@@ -54,12 +55,16 @@ for arg in args:
             data['domain'] = arg
         elif opt == '--name' or opt == '-n':
             data['name'] = arg
+        elif opt == '--folder' or opt == '-l':
+            data['folder'] = arg
+
         state = State.start
 
 user = data['from'].split('@')[0]
+to_real = ', '.join(data['to'])
 
 db = EmailManager(user)
-composer = MailComposer(data.get('name', user), user, data['domain'], ', '.join(data['to']), subject = data['subject'])
+composer = MailComposer(data.get('name', user), user, data['domain'], to_real, subject = data['subject'])
 
 composer.set_content(data['message'])
 composer.set_html(data['message'], watermark = data['watermark'])
@@ -76,4 +81,5 @@ for domain, emails in segmented_mails.items():
     records = get_dns_record(domain, 'MX')
     client = smtplib.SMTP(min(records, key = lambda rec: rec.priority).value[:-1], local_hostname='sayutel.com')
     client.sendmail(data['from'], emails, composer.get_bytes())
+    db.add_mail(data['folder'], composer.message, data['from'], to_real)
     client.close()
