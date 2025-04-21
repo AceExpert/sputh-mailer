@@ -81,7 +81,7 @@ class EmailManager:
 
         cursor: sqlite3.Cursor = self.folders[folder].cursor
         cursor.execute(
-            """INSERT INTO table VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""", 
+            """INSERT INTO emails VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""", 
             (self.folders[folder].count() + 1, 
              mail.get('From', None), mail.get('To', None), to_real,
              mail.get("Subject", None), mail.get("Date", None), mail.get("Message-ID", None), 
