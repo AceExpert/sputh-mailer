@@ -11,7 +11,7 @@ class State(enum.Enum):
     start = 0
     value = 1
 
-opts = ['--to', '-t', '--from', '-f', '--name', '-n', '--message', '-m', '--subject', '-s', '--domain', '-d', '-w', '--folder', '-l']
+opts = ['--to', '-t', '--from', '-f', '--name', '-n', '--message', '-m', '--subject', '-s', '--domain', '-d', '-w', '--folder', '-l', '--no-save']
 
 args = sys.argv
 
@@ -26,6 +26,7 @@ data = {
     'subject': '',
     'watermark': False,
     'folder': 'sent',
+    'no_save': False,
 }
 
 for arg in args:
@@ -33,6 +34,8 @@ for arg in args:
         if arg in opts:
             if arg == '-w':
                 data['watermark'] = True
+            elif arg == '--no-save':
+                data['no_save'] = True
             else:
                 state = State.value
                 opt = arg
@@ -64,7 +67,11 @@ user, domain = data['from'].split('@')
 domain = data['domain'] or domain
 to_real = ', '.join(data['to'])
 
-db = EmailManager(user)
+db = None
+
+if not data['no_save']:
+    db = EmailManager(user)
+
 composer = MailComposer(data.get('name', user), user, domain, to_real, subject = data['subject'])
 
 composer.set_content(data['message'])
@@ -84,4 +91,5 @@ for domain, emails in segmented_mails.items():
     client.sendmail(data['from'], emails, composer.get_bytes())
     client.close()
 
-db.add_mail(data['folder'], composer.message, data['from'], to_real)
+if db:
+    db.add_mail(data['folder'], composer.message, data['from'], to_real)
