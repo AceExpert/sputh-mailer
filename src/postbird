@@ -1,4 +1,4 @@
-#! /usr/bin/python3
+#!/usr/bin/python3
 import smtplib
 import sys
 import enum
@@ -57,8 +57,6 @@ for arg in args:
         state = State.start
 
 user = data['from'].split('@')[0]
-
-print(data['from'], user);
 
 db = EmailManager(user)
 composer = MailComposer(data.get('name', user), user, data['domain'], ', '.join(data['to']), subject = data['subject'])
