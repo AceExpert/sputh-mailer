@@ -21,7 +21,7 @@ opt = None
 data = {
     'to': [],
     'from': '',
-    'domain': 'sayutel.com',
+    'domain': '',
     'message': '',
     'subject': '',
     'watermark': False,
@@ -60,15 +60,16 @@ for arg in args:
 
         state = State.start
 
-user = data['from'].split('@')[0]
+user, domain = data['from'].split('@')
+domain = data['domain'] or domain
 to_real = ', '.join(data['to'])
 
 db = EmailManager(user)
-composer = MailComposer(data.get('name', user), user, data['domain'], to_real, subject = data['subject'])
+composer = MailComposer(data.get('name', user), user, domain, to_real, subject = data['subject'])
 
 composer.set_content(data['message'])
 composer.set_html(data['message'], watermark = data['watermark'])
-composer.sign(data['domain'], 'dragon', data['from'])
+composer.sign(domain, 'dragon', data['from'])
 
 segmented_mails = {}
 
