@@ -12,7 +12,7 @@ class MailComposer:
         self._subj = subject
         self._cont = content.strip() if content else ''
         self.message.add_header("From", f'{name} <{user}@{domain}>')
-        self.message.add_header("To", to.split("@")[0] + f' <{to}>')
+        self.message.add_header("To", to)
         self.message.add_header("Message-ID", f"<{gen_token(10)}@{domain}>")
         if subject:
             self.message.add_header("Subject", subject)
@@ -33,13 +33,13 @@ class MailComposer:
         self.message.attach(self.content)
         return self
 
-    def set_html(self, content: 'str | None'):
+    def set_html(self, content: 'str | None', watermark: bool = True):
         if content:
             self.html = EmailMessage()
             self.html.add_header("Content-Type", "text/html", charset="UTF-8")
             self.html.add_header("Content-Transfer-Encoding", "quoted-printable")
             self.html.set_payload(quopri.encodestring(
-                '''<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap"/><style>*{margin:0px;padding:0px;box-sizing:border-box;}</style><div style="font-family:Figtree, Calibri;font-size:15px;font-weight:400;"><div><div>''' + content + '''</div><br/><br/><div><p style="color:mediumpurple;margin:5px 0px;">Sent using SayuMail by Sayutel</p></div></div></div>'''
+                '''<div style="font-family:Figtree, Calibri;font-size:15px;font-weight:400;"><div><div>''' + content + '''</div><br/><br/>''' + '<div><p style="color:mediumpurple;margin:5px 0px;">Sent using SayuMail by Sayutel</p></div>' if watermark else '' + '</div></div>'
             ).decode())
         self.message.attach(self.html)
         return self
