@@ -67,7 +67,8 @@ class EmailManager:
         self.email_parser = BytesParser()
 
     def add_mail(self, folder: str, mail: EmailMessage, return_path: str, to_real: str):
-        bodies = self.get_body(mail)
+        bodies = []
+        self.get_body(mail, bodies)
         fbody: str = None
         
         for body in bodies:
