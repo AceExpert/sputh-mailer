@@ -29,7 +29,7 @@ class MailComposer:
             self.content = EmailMessage()
             self.content.add_header("Content-Type", "text/plain", charset="UTF-8")
             self.content.add_header("Content-Transfer-Encoding", "quoted-printable")
-            self.content.set_payload(quopri.encodestring(self._cont).decode())
+            self.content.set_payload(quopri.encodestring(self._cont.encode()).decode())
         self.message.attach(self.content)
         return self
 
@@ -39,7 +39,7 @@ class MailComposer:
             self.html.add_header("Content-Type", "text/html", charset="UTF-8")
             self.html.add_header("Content-Transfer-Encoding", "quoted-printable")
             self.html.set_payload(quopri.encodestring(
-                '''<div style="font-family:Figtree, Calibri;font-size:15px;font-weight:400;"><div><div>''' + content + '''</div><br/><br/>''' + '<div><p style="color:mediumpurple;margin:5px 0px;">Sent using SayuMail by Sayutel</p></div>' if watermark else '' + '</div></div>'
+                ('''<div style="font-family:Figtree, Calibri;font-size:15px;font-weight:400;"><div><div>''' + content + '''</div><br/><br/>''' + '<div><p style="color:mediumpurple;margin:5px 0px;">Sent using SayuMail by Sayutel</p></div>' if watermark else '' + '</div></div>').encode()
             ).decode())
         self.message.attach(self.html)
         return self
