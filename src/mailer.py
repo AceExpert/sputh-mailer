@@ -69,6 +69,6 @@ for em in data['to']:
 for domain, emails in segmented_mails.items():
     records = get_dns_record(domain, 'MX')
     print(min(records, key = lambda rec: rec.priority).value[:-1])
-    client = smtplib.SMTP(min(records, key = lambda rec: rec.priority).value[:-1], local_hostname='sayutel.com', port = 465)
+    client = smtplib.SMTP(min(records, key = lambda rec: rec.priority).value[:-1], local_hostname='sayutel.com', port = 25)
     client.starttls()
     client.sendmail(data['from'], emails, composer.get_bytes())
