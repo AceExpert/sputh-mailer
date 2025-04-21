@@ -58,6 +58,8 @@ for arg in args:
 
 user = data['from'].split('@')[0]
 
+print(data['from'], user);
+
 db = EmailManager(user)
 composer = MailComposer(data.get('name', user), user, data['domain'], ', '.join(data['to']), subject = data['subject'])
 
