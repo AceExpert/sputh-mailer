@@ -11,7 +11,7 @@ class State(enum.Enum):
     start = 0
     value = 1
 
-opts = ['--to', '-t', '--from', '-f', '--name', '-n', '--message', '-m', '--subject', '-s', '--domain', '-d']
+opts = ['--to', '-t', '--from', '-f', '--name', '-n', '--message', '-m', '--subject', '-s', '--domain', '-d', '-w']
 
 args = sys.argv
 
@@ -24,13 +24,18 @@ data = {
     'domain': 'sayutel.com',
     'message': '',
     'subject': '',
+    'watermark': False,
 }
 
 for arg in args:
     if state == State.start:
         if arg in opts:
-            state = State.value
-            opt = arg
+            if arg == '-w':
+                data['watermark'] = True
+            else:
+                state = State.value
+                opt = arg
+
     else:
         if opt == '--to' or opt == '-t':
             for em in get_email(arg):
@@ -56,9 +61,9 @@ user = data['from'].split('@')[0]
 db = EmailManager(user)
 composer = MailComposer(data.get('name', user), user, data['domain'], ', '.join(data['to']), subject = data['subject'])
 
-composer.sign(data['domain'], 'dragon', data['from'])
 composer.set_content(data['message'])
-composer.set_html(data['message'])
+composer.set_html(data['message'], watermark = data['watermark'])
+composer.sign(data['domain'], 'dragon', data['from'])
 
 segmented_mails = {}
 
