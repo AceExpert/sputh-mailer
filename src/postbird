@@ -63,9 +63,17 @@ for arg in args:
 
         state = State.start
 
+if not data['from'].strip():
+    print("Specify from address using -f")
+    exit(1)
+
 user, domain = data['from'].split('@')
 domain = data['domain'] or domain
 to_real = ', '.join(data['to'])
+
+if not data['to']:
+    print("Specify at least 1 to address using -t")
+    exit(2)
 
 db = None
 
@@ -87,9 +95,16 @@ for em in data['to']:
 
 for domain, emails in segmented_mails.items():
     records = get_dns_record(domain, 'MX')
-    client = smtplib.SMTP(min(records, key = lambda rec: rec.priority).value[:-1], local_hostname='sayutel.com')
-    client.sendmail(data['from'], emails, composer.get_bytes())
-    client.close()
+    if not records:
+        print(f"No mail servers found for {domain}. Skipping...")
+        continue
+    mx_server = min(records, key = lambda rec: rec.priority).value[:-1]
+    try:
+        client = smtplib.SMTP(mx_server, local_hostname='sayutel.com')
+        client.sendmail(data['from'], emails, composer.get_bytes())
+        client.close()
+    except smtplib.SMTPRecipientsRefused:
+        print('Recipient: ' + data['from'] + ' refused by mail server ' + mx_server + ' for ' + domain + '. Skipping...')
 
 if db:
     db.add_mail(data['folder'], composer.message, data['from'], to_real)
