@@ -115,7 +115,7 @@ class EmailManager:
         
         else:
             bodies.append(SimpleEmailBody(
-                    content = email.get_payload()[-1] if email.get_payload() else None,
+                    content = email.get_payload() if email.get_payload() else None,
                     content_type = email.get_content_type(),
                     content_transfer = email.get('Content-Transfer-Encoding', None)
                 )
