@@ -26,6 +26,7 @@ class SimpleEmail:
     date: datetime = None
     attachments: list[Any] = None
     body: str = None
+    raw: bytes = None
 
     @classmethod
     def from_mail(cls, data):
@@ -34,7 +35,7 @@ class SimpleEmail:
             date = data[5], message_id = data[6], return_path = data[7], sign = data[8], body = data[9],
             from_name = SimpleEmail.resolve_name(data[1]),
             to_name = SimpleEmail.resolve_name(data[2]),
-            domain = data[7].split('@')[1]
+            domain = data[7].split('@')[1],
         )
     
     @classmethod
