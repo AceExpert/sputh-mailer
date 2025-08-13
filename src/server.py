@@ -72,7 +72,7 @@ class SayutelMailServer:
                             print("yes")
                             self.transport.write(b"220 Yes go ahead\r\n")
                             self.info.tls_attempt = True
-                            self.mailserver.loop.create_task(self.mailserver.loop.start_tls(self.transport, self, sslcontext = sslctx, server_side = True))
+                            asyncio.gather(self.upgrade_to_tls())
 
                         elif b':' in part:
                             cmd, params = part.split(b':', 1)
@@ -92,6 +92,8 @@ class SayutelMailServer:
 
                 i += 1
 
+        async def upgrade_to_tls(self):
+            self.transport = await self.mailserver.loop.start_tls(self.transport, self, sslcontext = sslctx, server_side = True)
 
         def eof_received(self):
             print("CONN EOF CL")
