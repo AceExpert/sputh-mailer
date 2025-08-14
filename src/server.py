@@ -74,9 +74,14 @@ class SayutelMailServer:
                     self.pending_size = 0
 
             elif self.data_cmd == 0:
-                if self.buff.endswith(b'\r\n.\r\n'):
-                    self.info.mail_data = self.buff[:-5]
+                ind = self.buff.find(b'\r\n.\r\n')
+                if ind > -1:
+                    self.info.mail_data = self.buff[:ind]
                     self.data_cmd = -1
+                    if ind + 5 <= len(self.buff) - 1:
+                        self.buff = self.buff[ind + 5]
+                    else:
+                        self.buff = b''
                     asyncio.gather(self.process_mail_data(self.info.mail_data))
 
             elif self.data_cmd == -1:
