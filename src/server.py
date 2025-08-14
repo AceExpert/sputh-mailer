@@ -39,6 +39,8 @@ class SayutelMailServer:
 
             self.info = SMTPClientInfo()
 
+            self.write_queue = []
+
             self.buff_list = []
             self.buff = b''
             self.cmds = []
@@ -48,6 +50,12 @@ class SayutelMailServer:
             self.bdat_last = False
             self.state = CmdState.START
             
+        def write_to_client(self, data: bytes):
+            if self.info.tls_attempt and not self.info.is_tls:
+                self.write_queue.append(data)
+            elif not self.info.tls_attempt or (self.info.tls_attempt and self.info.is_tls):
+                self.transport.write(data)
+
         def connection_made(self, transport):
             pass
             
@@ -81,7 +89,7 @@ class SayutelMailServer:
                                 if 'ehlo' not in self.cmds:
                                     self.cmds.append('ehlo')
                                 self.info.ehlo_domain = part[5:].strip().decode()
-                                self.transport.write(
+                                self.write_to_client(
                                     b'250-sayutel.com Hello ' + self.info.ehlo_domain.encode() + b'\r\n'
                                     b'250-SIZE 157286400\r\n'
                                     b'250-STARTTLS\r\n'
@@ -93,7 +101,7 @@ class SayutelMailServer:
                             elif part.lower().strip() == b'starttls':
                                 if 'starttls' not in self.cmds:
                                     self.cmds.append('starttls')
-                                self.transport.write(b"220 Yes go ahead\r\n")
+                                self.write_to_client(b"220 Yes go ahead\r\n")
                                 self.info.tls_attempt = True
                                 asyncio.gather(self.upgrade_to_tls())
 
@@ -105,23 +113,23 @@ class SayutelMailServer:
                                         self.cmds.append('mailfrom')
                                     parsed = self.parse_envelope_cmd(params)
                                     self.info.mail_from = parsed['mail']
-                                    self.transport.write(b'250 Ok\r\n')
+                                    self.write_to_client(b'250 Ok\r\n')
                                 elif cmd_normal == b'rcpt to':
                                     if 'rcptto' not in self.cmds:
                                         self.cmds.append('rcptto')
                                     parsed = self.parse_envelope_cmd(params)
                                     self.info.rcpt_to.append(parsed['mail'])
-                                    self.transport.write(b'250 Ok\r\n')
+                                    self.write_to_client(b'250 Ok\r\n')
 
                         else:
                             if len(part) >= 4:
                                 if part[:4].lower() == b'quit':
-                                    self.transport.write(b'221 Bye\r\n')
+                                    self.write_to_client(b'221 Bye\r\n')
                                     self.transport.close()
                                 
                                 elif part[:4].lower() == b'data':
                                     self.data_cmd = 0
-                                    self.transport.write(b'354 Send\r\n')
+                                    self.write_to_client(b'354 Send\r\n')
 
                                 elif part[:4].lower() == b'bdat':
                                     self.data_cmd = 1
@@ -165,6 +173,8 @@ class SayutelMailServer:
         async def upgrade_to_tls(self):
             self.transport = await self.mailserver.loop.start_tls(self.transport, self, sslcontext = sslctx, server_side = True)
             self.info.is_tls = True
+            while len(self.write_queue):
+                self.transport.write(self.write_queue.pop(0))
 
         async def process_mail_data(self, data: bytes):
             print(data)
@@ -174,7 +184,7 @@ class SayutelMailServer:
             print('RCPT TO:', self.info.rcpt_to)
             print('Encrypted:', self.info.is_tls)
             print(data.decode())
-            self.transport.write(b'250 Received Thank you\r\n')
+            self.write_to_client(b'250 Received Thank you\r\n')
             
         def parse_envelope_cmd(self, value: bytes):
             data = {
