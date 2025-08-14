@@ -5,7 +5,7 @@ import enum
 import re
 
 sslctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-# sslctx.load_cert_chain('/etc/letsencrypt/archive/sayutel.com/cert1.pem', '/etc/letsencrypt/archive/sayutel.com/privkey1.pem')
+sslctx.load_cert_chain('/etc/letsencrypt/archive/sayutel.com/cert1.pem', '/etc/letsencrypt/archive/sayutel.com/privkey1.pem')
 
 class CmdState(enum.Enum):
     START = 0
@@ -22,6 +22,7 @@ class SMTPClientInfo:
         self.mail_from: str = None
         self.mail_data: bytes = b''
         self.rcpt_to: list[str] = []
+        self.mail_size: int = 0
 
 class SayutelMailServer:
 
@@ -42,58 +43,167 @@ class SayutelMailServer:
             self.buff = b''
             self.cmds = []
             self.current_cmd = ''
+            self.data_cmd = -1
+            self.pending_size = 0
+            self.bdat_last = False
             self.state = CmdState.START
             
         def connection_made(self, transport):
             pass
             
         def data_received(self, data: bytes):
+            if self.data_cmd == 1:
+                if len(self.buff) >= self.pending_size:
+                    self.info.mail_data += self.buff[:self.pending_size]
+
+                    if self.bdat_last:
+                        asyncio.gather(self.process_mail_data(self.info.mail_data))
+
+                    self.data_cmd = -1
+                    self.buff = self.buff[self.pending_size:]  
             self.buff += data
-            parts = self.buff.split(b'\r\n')
-            i = 0
-            for part in parts:
-                if i < len(parts) - 1:
-                    print(part)
-                    if len(part) >= 6:
-                        if part[:4].lower() == b'ehlo':
-                            if 'ehlo' not in self.cmds:
-                                self.cmds.append('ehlo')
-                            self.info.ehlo_domain = part[5:].strip().decode()
-                            self.transport.write(
-                                b'250-sayutel.com Hello ' + self.info.ehlo_domain.encode() + b'\r\n'
-                                b'250-SIZE 157286400\r\n'
-                                b'250-STARTTLS\r\n'
-                                b'250-PIPELINING\r\n'
-                                b'250-CHUNKING\r\n'
-                                b'250-SMTPUTF8\r\n'
-                                b'250 8BITMIME\r\n'
-                            )
-                        elif part.lower().strip() == b'starttls':
-                            print("yes")
-                            self.transport.write(b"220 Yes go ahead\r\n")
-                            self.info.tls_attempt = True
-                            asyncio.gather(self.upgrade_to_tls())
 
-                        elif b':' in part:
-                            cmd, params = part.split(b':', 1)
-                            cmd_normal = cmd.lower().strip()
-                            if cmd_normal == b'mail from':
-                                for param in params.split():
-                                    f_param = param.strip()
-                                    if f_param.startswith(b'<') and f_param.endswith(b'>'):
-                                        self.info.mail_from = f_param[1:-1].decode()
-                            elif cmd_normal == b'rcpt to':
-                                for param in params.split():
-                                    f_param = param.strip()
-                                    if f_param.startswith(b'<') and f_param.endswith(b'>'):
-                                        self.info.rcpt_to.append(f_param[1:-1].decode())
-                else:
-                    self.buff = part
+            if self.data_cmd == 0:
+                if self.buff.endswith(b'\r\n.\r\n'):
+                    self.info.mail_data = self.buff[:-3]
+                    self.data_cmd = -1
+                    asyncio.gather(self.process_mail_data(self.info.mail_data))
 
-                i += 1
+            if self.data_cmd == -1:
+                parts = self.buff.split(b'\r\n')
+                i = 0
+                for part in parts:
+                    if i < len(parts) - 1:
+                        print(part)
+                        if len(part) >= 6 and not part.startswith(b'bdat') and not part.startswith(b'data'):
+                            if part[:4].lower() == b'ehlo':
+                                if 'ehlo' not in self.cmds:
+                                    self.cmds.append('ehlo')
+                                self.info.ehlo_domain = part[5:].strip().decode()
+                                self.transport.write(
+                                    b'250-sayutel.com Hello ' + self.info.ehlo_domain.encode() + b'\r\n'
+                                    b'250-SIZE 157286400\r\n'
+                                    b'250-STARTTLS\r\n'
+                                    b'250-PIPELINING\r\n'
+                                    b'250-CHUNKING\r\n'
+                                    b'250-SMTPUTF8\r\n'
+                                    b'250 8BITMIME\r\n'
+                                )
+                            elif part.lower().strip() == b'starttls':
+                                if 'starttls' not in self.cmds:
+                                    self.cmds.append('starttls')
+                                self.transport.write(b"220 Yes go ahead\r\n")
+                                self.info.tls_attempt = True
+                                asyncio.gather(self.upgrade_to_tls())
+
+                            elif b':' in part:
+                                cmd, params = part.split(b':', 1)
+                                cmd_normal = cmd.lower().strip()
+                                if cmd_normal == b'mail from':
+                                    if 'mailfrom' not in self.cmds:
+                                        self.cmds.append('mailfrom')
+                                    parsed = self.parse_envelope_cmd(params)
+                                    self.info.mail_from = parsed['mail']
+                                elif cmd_normal == b'rcpt to':
+                                    if 'rcptto' not in self.cmds:
+                                        self.cmds.append('rcptto')
+                                    parsed = self.parse_envelope_cmd(params)
+                                    self.info.rcpt_to.append(parsed['mail'])
+                        else:
+                            if len(part) >= 4:
+                                if part[:4].lower() == b'quit':
+                                    self.transport.write(b'221 Bye\r\n')
+                                    self.transport.close()
+                                
+                                elif part[:4].lower() == b'data':
+                                    self.data_cmd = 0
+
+                                elif part[:4].lower() == b'bdat':
+                                    self.data_cmd = 1
+
+                                    for pa in part.split(b' '):
+                                        if pa.strip():
+                                            if pa.strip().lower() == b'last':
+                                                self.bdat_last = True
+                                            elif not self.pending_size and pa.strip().isdigit():
+                                                self.pending_size = int(pa.strip().decode())
+
+
+                                if part[:4].lower() in [b'data', b'bdat']:
+                                    i += 1
+                                    self.buff = b''
+                                    while i < len(parts):
+                                        self.buff += parts[i] + (b'\r\n' if i != (len(parts) - 1) else b'')
+                                        i += 1
+                                    break
+                    else:
+                        self.buff = part
+
+                    i += 1
 
         async def upgrade_to_tls(self):
             self.transport = await self.mailserver.loop.start_tls(self.transport, self, sslcontext = sslctx, server_side = True)
+            self.info.is_tls = True
+
+        async def process_mail_data(self, data: bytes):
+            print(data)
+            print()
+            print(data.decode())
+            self.transport.write(b'250 Received Thank you\r\n')
+            
+        async def parse_envelope_cmd(self, value: bytes):
+            data = {
+                'mail': '',
+                'curr_param': '',
+                'val_start': False,
+                'params': {}
+            }
+
+            state = 0
+
+            for ind, v in enumerate(value.decode()):
+
+                if state == 0:
+
+                    if not data['mail'] and v == '<':
+                        state = 1
+                
+                elif state == 1:
+
+                    if v == '>':
+                        state = 2
+                    else:
+                        data['mail'] += v
+
+                elif state == 2:
+
+                    if v.isalnum():
+                        state = 3
+                        data['curr_param'] += v
+
+                elif state == 3:
+
+                    if v.isalnum():
+                        data['curr_param'] += v
+                    elif v == '=':
+                        state = 4
+                        data['curr_param'] = data['curr_param'].lower()
+                        data['params'][data['curr_param']] = ''
+                        data['val_start'] = True
+                        
+                elif state == 4:
+
+                    if data['val_start'] and v not in [' ', '\n']:
+                        data['params'][data['curr_param']] += v
+                        data['val_start'] = False
+                    elif not data['val_start'] and v in [' ', '\n']:
+                        state = 2
+                        data['curr_param'] = ''
+                    elif not data['val_start'] and v not in [' ', '\n']:
+                        data['params'][data['curr_param']] += v
+            
+            return data
+
 
         def eof_received(self):
             print("CONN EOF CL")
