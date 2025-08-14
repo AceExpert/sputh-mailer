@@ -68,6 +68,8 @@ class SayutelMailServer:
 
                     if self.bdat_last:
                         asyncio.gather(self.process_mail_data(self.info.mail_data))
+                    else:
+                        self.write_to_client(b'250 next\r\n')
 
                     self.data_cmd = -1
                     self.buff = self.buff[self.pending_size:]
@@ -84,7 +86,7 @@ class SayutelMailServer:
                         self.buff = b''
                     asyncio.gather(self.process_mail_data(self.info.mail_data))
 
-            elif self.data_cmd == -1:
+            if self.data_cmd == -1:
                 parts = self.buff.split(b'\r\n')
                 i = 0
                 for part in parts:
@@ -248,12 +250,9 @@ class SayutelMailServer:
 
 
         def eof_received(self):
-            print("CONN EOF CL")
             pass
         
         def connection_lost(self, exc: Exception):
-            print(exc)
-            print("CONN LOST CL")
             pass
     
     class ServerProtocol(asyncio.Protocol):
