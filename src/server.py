@@ -151,7 +151,7 @@ class SayutelMailServer:
             print(data.decode())
             self.transport.write(b'250 Received Thank you\r\n')
             
-        async def parse_envelope_cmd(self, value: bytes):
+        def parse_envelope_cmd(self, value: bytes):
             data = {
                 'mail': '',
                 'curr_param': '',
