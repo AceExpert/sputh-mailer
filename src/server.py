@@ -104,11 +104,14 @@ class SayutelMailServer:
                                         self.cmds.append('mailfrom')
                                     parsed = self.parse_envelope_cmd(params)
                                     self.info.mail_from = parsed['mail']
+                                    self.transport.write(b'250 Ok\r\n')
                                 elif cmd_normal == b'rcpt to':
                                     if 'rcptto' not in self.cmds:
                                         self.cmds.append('rcptto')
                                     parsed = self.parse_envelope_cmd(params)
                                     self.info.rcpt_to.append(parsed['mail'])
+                                    self.transport.write(b'250 Ok\r\n')
+
                         else:
                             if len(part) >= 4:
                                 if part[:4].lower() == b'quit':
@@ -117,6 +120,7 @@ class SayutelMailServer:
                                 
                                 elif part[:4].lower() == b'data':
                                     self.data_cmd = 0
+                                    self.transport.write(b'354 Send\r\n')
 
                                 elif part[:4].lower() == b'bdat':
                                     self.data_cmd = 1
