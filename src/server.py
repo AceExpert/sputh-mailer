@@ -52,6 +52,8 @@ class SayutelMailServer:
             pass
             
         def data_received(self, data: bytes):
+            self.buff += data
+
             if self.data_cmd == 1:
                 if len(self.buff) >= self.pending_size:
                     self.info.mail_data += self.buff[:self.pending_size]
@@ -61,20 +63,19 @@ class SayutelMailServer:
 
                     self.data_cmd = -1
                     self.buff = self.buff[self.pending_size:]  
-            self.buff += data
 
-            if self.data_cmd == 0:
+            elif self.data_cmd == 0:
                 if self.buff.endswith(b'\r\n.\r\n'):
-                    self.info.mail_data = self.buff[:-3]
+                    self.info.mail_data = self.buff[:-5]
                     self.data_cmd = -1
                     asyncio.gather(self.process_mail_data(self.info.mail_data))
 
-            if self.data_cmd == -1:
+            elif self.data_cmd == -1:
                 parts = self.buff.split(b'\r\n')
                 i = 0
                 for part in parts:
                     if i < len(parts) - 1:
-                        print(part)
+                        
                         if len(part) >= 6 and not part.startswith(b'bdat') and not part.startswith(b'data'):
                             if part[:4].lower() == b'ehlo':
                                 if 'ehlo' not in self.cmds:
@@ -139,7 +140,23 @@ class SayutelMailServer:
                                     while i < len(parts):
                                         self.buff += parts[i] + (b'\r\n' if i != (len(parts) - 1) else b'')
                                         i += 1
+                                    
+                                    if self.data_cmd == 1:
+                                        if len(self.buff) >= self.pending_size:
+                                            self.info.mail_data += self.buff[:self.pending_size]
+
+                                            self.data_cmd = -1
+                                            self.buff = self.buff[self.pending_size:]  
+
+                                            if self.bdat_last:
+                                                asyncio.gather(self.process_mail_data(self.info.mail_data))
+                                    elif self.data_cmd == 0:
+                                        if self.buff.endswith(b'\r\n.\r\n'):
+                                            self.info.mail_data = self.buff[:-5]
+                                            self.data_cmd = -1
+                                            asyncio.gather(self.process_mail_data(self.info.mail_data))
                                     break
+
                     else:
                         self.buff = part
 
@@ -152,6 +169,10 @@ class SayutelMailServer:
         async def process_mail_data(self, data: bytes):
             print(data)
             print()
+            print('Received from:', self.info.ehlo_domain)
+            print('Return-Path:', self.info.mail_from)
+            print('RCPT TO:', self.info.rcpt_to)
+            print('Encrypted:', self.info.is_tls)
             print(data.decode())
             self.transport.write(b'250 Received Thank you\r\n')
             
