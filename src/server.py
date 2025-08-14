@@ -70,7 +70,8 @@ class SayutelMailServer:
                         asyncio.gather(self.process_mail_data(self.info.mail_data))
 
                     self.data_cmd = -1
-                    self.buff = self.buff[self.pending_size:]  
+                    self.buff = self.buff[self.pending_size:]
+                    self.pending_size = 0
 
             elif self.data_cmd == 0:
                 if self.buff.endswith(b'\r\n.\r\n'):
@@ -84,7 +85,7 @@ class SayutelMailServer:
                 for part in parts:
                     if i < len(parts) - 1:
                         
-                        if len(part) >= 6 and not part.startswith(b'bdat') and not part.startswith(b'data'):
+                        if len(part) >= 6 and not part[:4].lower() in [b'bdat', b'data']:
                             if part[:4].lower() == b'ehlo':
                                 if 'ehlo' not in self.cmds:
                                     self.cmds.append('ehlo')
@@ -155,6 +156,7 @@ class SayutelMailServer:
 
                                             self.data_cmd = -1
                                             self.buff = self.buff[self.pending_size:]  
+                                            self.pending_size = 0
 
                                             if self.bdat_last:
                                                 asyncio.gather(self.process_mail_data(self.info.mail_data))
