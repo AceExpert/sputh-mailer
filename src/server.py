@@ -4,6 +4,9 @@ import socket
 import enum
 import re
 
+from db import EmailManager
+
+
 sslctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 sslctx.load_cert_chain('/etc/letsencrypt/archive/sayutel.com/cert1.pem', '/etc/letsencrypt/archive/sayutel.com/privkey1.pem')
 
@@ -186,14 +189,26 @@ class SayutelMailServer:
                 self.transport.write(self.write_queue.pop(0))
 
         async def process_mail_data(self, data: bytes):
-            print(data)
-            print()
-            print('Received from:', self.info.ehlo_domain)
-            print('Return-Path:', self.info.mail_from)
-            print('RCPT TO:', self.info.rcpt_to)
-            print('Encrypted:', self.info.is_tls)
-            print(data.decode())
+            # print(data)
+            # print()
+            # print('Received from:', self.info.ehlo_domain)
+            # print('Return-Path:', self.info.mail_from)
+            # print('RCPT TO:', self.info.rcpt_to)
+            # print('Encrypted:', self.info.is_tls)
+            # print(data.decode())
+            for user in self.info.rcpt_to:
+                db = EmailManager(user)
+                db.add_raw_mail('inbox', data, self.info.mail_from, user)
             self.write_to_client(b'250 Received Thank you\r\n')
+
+            for fns in self.mailserver.listeners:
+                try:
+                    if self.mailserver.owner_obj:
+                        await fns(self.mailserver.owner_obj, self.info, data)
+                    else:
+                        await fns(self.info, data)
+                except Exception:
+                    pass
             
         def parse_envelope_cmd(self, value: bytes):
             data = {
@@ -273,9 +288,11 @@ class SayutelMailServer:
         def connection_lost(self, exc: Exception):
             pass
         
-    def __init__(self, loop = None):
+    def __init__(self, owner, loop = None):
         self.loop = loop or asyncio.new_event_loop()
         self.connections = []
+        self.owner_obj = owner
+        self.listeners = []
 
     async def start_server(self):
         self.server = await self.loop.create_server(
@@ -287,5 +304,14 @@ class SayutelMailServer:
         await self.server.start_serving()
         await self.server.serve_forever()
 
-mailserver = SayutelMailServer()
-mailserver.loop.run_until_complete(mailserver.start_server())
+    def add_listener(self, fn):
+        self.listeners.append(fn)
+
+    def remove_listener(self, fn):
+        self.listeners.remove(fn)
+
+    
+
+if __name__ == '__main__':
+    mailserver = SayutelMailServer()
+    mailserver.loop.run_until_complete(mailserver.start_server())

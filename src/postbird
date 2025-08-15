@@ -78,7 +78,7 @@ if not data['to']:
 db = None
 
 if not data['no_save']:
-    db = EmailManager(user)
+    db = EmailManager(f'{user}@{domain}')
 
 composer = MailComposer(data.get('name', user), user, domain, to_real, subject = data['subject'])
 

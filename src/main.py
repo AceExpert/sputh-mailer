@@ -12,6 +12,8 @@ from models import Channel, DnsRecord, Interval
 from utils import gen_token, get_dns_record, get_email
 from mailcomposer import MailComposer
 
+from server import SayutelMailServer, SMTPClientInfo
+
 userData = {
     'anshul': {
         'pswd': 'Anshul@7329',
@@ -31,6 +33,10 @@ class SputhMailer(ws.ServerSocket):
         self.open_channels: dict[Any, Channel] = {}
         self.smtp_client: smtplib.SMTP = None
         self.ecc = ECC()
+        self.mailserver = SayutelMailServer(self)
+
+    async def on_mail(self, info: SMTPClientInfo, data: bytes):
+        pass
 
     async def on_ready(self):
         print("Server listening @ 0.0.0.0:3008")
@@ -96,7 +102,7 @@ class SputhMailer(ws.ServerSocket):
                 'name': userData[data.user]['name'],
                 'extern': userData[data.user]['extern']
             })
-            channel.manager = EmailManager(data.user)
+            channel.manager = EmailManager(data.user + '@sputh.me')
             await self.send_msg(channel.client, {'auth': 1}, channel.pub_key)
         else:
             await self.send_msg(channel.client, {'auth': 0}, channel.pub_key)
