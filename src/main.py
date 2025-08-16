@@ -5,6 +5,7 @@ import ssl
 import ws
 
 from typing import Any
+from threading import Thread
 
 from db import EmailManager
 from crypt import ECC, private_key
@@ -34,8 +35,9 @@ class SputhMailer(ws.ServerSocket):
         self.smtp_client: smtplib.SMTP = None
         self.ecc = ECC()
         self.mailserver = SayutelMailServer(self)
+        self.mailserver.add_listener(self.on_mail)
 
-    async def on_mail(self, info: SMTPClientInfo, data: bytes):
+    async def on_mail(self, info: SMTPClientInfo, data: tuple):
         pass
 
     async def on_ready(self):
@@ -164,4 +166,10 @@ class SputhMailer(ws.ServerSocket):
             pass
 
 server = SputhMailer()
+
+def startMailServer():
+    server.mailserver.loop.run_until_complete(server.mailserver.start_server())
+
+Thread(target = startMailServer).start()
+
 server.listen("0.0.0.0", 3008)

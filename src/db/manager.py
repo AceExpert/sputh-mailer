@@ -69,7 +69,7 @@ class EmailManager:
 
     def add_raw_mail(self, folder: str, mail_data: bytes, return_path: str, to_real: str):
         mail = self.email_parser.parsebytes(mail_data)
-        self.add_mail(folder, mail, return_path, to_real)
+        return self.add_mail(folder, mail, return_path, to_real)
 
     def add_mail(self, folder: str, mail: EmailMessage, return_path: str, to_real: str):
         bodies = []
@@ -84,17 +84,20 @@ class EmailManager:
         if not fbody and bodies:
             fbody = bodies[0].content
 
+        insert_data: tuple = (self.folders[folder].count() + 1, 
+            mail.get('From', None), mail.get('To', None), to_real,
+            mail.get("Subject", None), mail.get("Date", None), mail.get("Message-ID", None), 
+            return_path, ", ".join(self.get_sign(mail)), fbody, None, mail.as_bytes()
+        )
+
         cursor: sqlite3.Cursor = self.folders[folder].cursor
         cursor.execute(
             """INSERT INTO emails VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""", 
-            (self.folders[folder].count() + 1, 
-             mail.get('From', None), mail.get('To', None), to_real,
-             mail.get("Subject", None), mail.get("Date", None), mail.get("Message-ID", None), 
-             return_path, ", ".join(self.get_sign(mail)), fbody, None, mail.as_bytes()
-             )
+            insert_data
         )
         self.folders[folder].db.commit()
         self.folders[folder]._count += 1
+        return insert_data
     
     def get_mails(self, folder: str, limit: int = 50, offset: int = 0):
         data = self.folders[folder].cursor.execute(

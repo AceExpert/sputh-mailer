@@ -8,7 +8,7 @@ from db import EmailManager
 
 
 sslctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-sslctx.load_cert_chain('/etc/letsencrypt/archive/sayutel.com/cert1.pem', '/etc/letsencrypt/archive/sayutel.com/privkey1.pem')
+#sslctx.load_cert_chain('/etc/letsencrypt/archive/sayutel.com/cert1.pem', '/etc/letsencrypt/archive/sayutel.com/privkey1.pem')
 
 class CmdState(enum.Enum):
     START = 0
@@ -196,19 +196,20 @@ class SayutelMailServer:
             # print('RCPT TO:', self.info.rcpt_to)
             # print('Encrypted:', self.info.is_tls)
             # print(data.decode())
+
             for user in self.info.rcpt_to:
                 db = EmailManager(user)
-                db.add_raw_mail('inbox', data, self.info.mail_from, user)
-            self.write_to_client(b'250 Received Thank you\r\n')
+                ins_data: tuple = db.add_raw_mail('inbox', data, self.info.mail_from, user)
+                for fns in self.mailserver.listeners:
+                    try:
+                        if self.mailserver.owner_obj:
+                            await fns(self.mailserver.owner_obj, self.info, ins_data)
+                        else:
+                            await fns(self.info, ins_data)
+                    except Exception:
+                        pass
 
-            for fns in self.mailserver.listeners:
-                try:
-                    if self.mailserver.owner_obj:
-                        await fns(self.mailserver.owner_obj, self.info, data)
-                    else:
-                        await fns(self.info, data)
-                except Exception:
-                    pass
+            self.write_to_client(b'250 Received Thank you\r\n')
             
         def parse_envelope_cmd(self, value: bytes):
             data = {
@@ -300,6 +301,8 @@ class SayutelMailServer:
             '0.0.0.0', 25, 
             family = socket.AF_INET, backlog = 4096
         )
+
+        print("Sayutel ESMTPS Mail server active @ 0.0.0.0:25")
         
         await self.server.start_serving()
         await self.server.serve_forever()

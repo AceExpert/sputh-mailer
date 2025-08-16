@@ -69,9 +69,9 @@ def get_folder_path(user: str, folder: str) -> str:
         db = sqlite3.connect(auth_dir + '/users.db')
         cursor = db.cursor()
         for info in cursor.execute('SELECT user_id, domain, dom_alias FROM users WHERE user_id=?', (user_id,)).fetchall():
-            if domain in info[2].split(','):
+            if domain in info[3].split(','):
                 db.close()
-                return get_path(info[1])
+                return get_path(info[2])
 
 def get_name_from_header(txt: str) -> str:
     return re.sub(email_list_pat, '', txt).strip()
