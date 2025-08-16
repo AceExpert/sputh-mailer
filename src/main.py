@@ -38,7 +38,12 @@ class SputhMailer(ws.ServerSocket):
         self.mailserver.add_listener(self.on_mail)
 
     async def on_mail(self, info: SMTPClientInfo, data: tuple):
-        pass
+        print('Received from:', info.ehlo_domain)
+        print('Return-Path:', info.mail_from)
+        print('RCPT TO:', info.rcpt_to)
+        print('Encrypted:', info.is_tls)
+        print()
+        print(data)
 
     async def on_ready(self):
         print("Server listening @ 0.0.0.0:3008")
