@@ -6,7 +6,7 @@ from utils.timers import interval, timeout
 email_pattern: str = r"[a-zA-Z0-9\$%\-#&\.]+@(?:[a-zA-Z0-9\-]+\.)*[a-zA-Z0-9\-]+\.(?:[a-zA-Z0-9\-]+\.)?[a-zA-Z0-9\-]+"
 email_list_pat: str = r'(?:[^\s]*' + email_pattern + r'[^\s]*\s*,?\s*)*'
 
-auth_dir: str = r''
+auth_dir: str = r'/home/db/sayutel'
 
 def gen_token(length: int = 10) -> str:
 
@@ -60,8 +60,10 @@ def get_folder_path(user: str, folder: str) -> str:
         user_id = parts[0]
         domain = 'sputh.me'
 
-    get_path = lambda dom: re.findall(r"(.+)(?:[/\\].+){3}", __file__)[0] + f'/drive/{dom}/{user_id}/emails/{folder}/{folder}.db'
-    get_dom_folder_path = lambda dom: re.findall(r"(.+)(?:[/\\].+){3}", __file__)[0] + f'/drive/{dom}'
+    db_folder: str = '/home/db' or re.findall(r"(.+)(?:[/\\].+){3}", __file__)[0]
+
+    get_path = lambda dom: db_folder + f'/drive/{dom}/{user_id}/emails/{folder}/{folder}.db'
+    get_dom_folder_path = lambda dom: db_folder + f'/drive/{dom}'
     
     if os.path.exists(get_dom_folder_path(domain)):
         return get_path(domain)
