@@ -8,7 +8,7 @@ from db import EmailManager
 
 
 sslctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-#sslctx.load_cert_chain('/etc/letsencrypt/archive/sayutel.com/cert1.pem', '/etc/letsencrypt/archive/sayutel.com/privkey1.pem')
+sslctx.load_cert_chain('/etc/letsencrypt/archive/sayutel.com/cert1.pem', '/etc/letsencrypt/archive/sayutel.com/privkey1.pem')
 
 class CmdState(enum.Enum):
     START = 0
