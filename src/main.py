@@ -34,7 +34,7 @@ class SputhMailer(ws.ServerSocket):
         self.open_channels: dict[Any, Channel] = {}
         self.smtp_client: smtplib.SMTP = None
         self.ecc = ECC()
-        self.mailserver = SayutelMailServer(self)
+        self.mailserver = SayutelMailServer(None)
         self.mailserver.add_listener(self.on_mail)
 
     async def on_mail(self, info: SMTPClientInfo, data: tuple):

@@ -289,7 +289,7 @@ class SayutelMailServer:
         def connection_lost(self, exc: Exception):
             pass
         
-    def __init__(self, owner, loop = None):
+    def __init__(self, owner = None, loop = None):
         self.loop = loop or asyncio.new_event_loop()
         self.connections = []
         self.owner_obj = owner
