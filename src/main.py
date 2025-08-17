@@ -7,7 +7,7 @@ import ws
 from typing import Any
 from threading import Thread
 
-from db import EmailManager
+from db import EmailManager, SimpleEmail
 from crypt import ECC, private_key
 from models import Channel, DnsRecord, Interval
 from utils import gen_token, get_dns_record, get_email
@@ -37,13 +37,17 @@ class SputhMailer(ws.ServerSocket):
         self.mailserver = SayutelMailServer(None)
         self.mailserver.add_listener(self.on_mail)
 
-    async def on_mail(self, info: SMTPClientInfo, data: tuple):
+    async def on_mail(self, info: SMTPClientInfo, data: tuple, folder: str = None, category: str = None):
         print('Received from:', info.ehlo_domain)
         print('Return-Path:', info.mail_from)
         print('RCPT TO:', info.rcpt_to)
         print('Encrypted:', info.is_tls)
         print()
         print(data)
+        for user in info.rcpt_to:
+            for chans in self.open_channels.values():
+                if chans.user == user.lower():
+                    await self.send_msg(chans.client, {'folder': folder or 'inbox', 'event': 1, 'mail': SimpleEmail.from_mail(data)}, chans.pub_key)
 
     async def on_ready(self):
         print("Server listening @ 0.0.0.0:3008")

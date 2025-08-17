@@ -1,1 +1,1 @@
-from db.manager import EmailManager
+from db.manager import EmailManager, SimpleEmail
