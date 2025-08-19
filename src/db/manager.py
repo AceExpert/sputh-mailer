@@ -1,15 +1,18 @@
 import sqlite3
 import re
+import quopri
+import base64
+import os
 
 from typing import Any
 from datetime import datetime
 from dataclasses import dataclass
-from email.message import EmailMessage
+from email.message import EmailMessage, Message
 from email.parser import BytesParser
 from ws import Object
 
-from models import EmailDB
-from utils import get_folder_path, get_name_from_header, get_email
+from models import EmailDB, AttachmentDB
+from utils import get_folder_path, get_name_from_header, get_email, gen_token
 
 @dataclass
 class SimpleEmail:
@@ -27,6 +30,7 @@ class SimpleEmail:
     attachments: list[Any] = None
     body: str = None
     raw: bytes = None
+    mail_id: str = None
 
     @classmethod
     def from_mail(cls, data):
@@ -36,6 +40,8 @@ class SimpleEmail:
             from_name = SimpleEmail.resolve_name(data[1]),
             to_name = SimpleEmail.resolve_name(data[2]),
             domain = data[7].split('@')[1],
+            mail_id = data[12],
+            attachments = [*map(SimpleEmail.from_attachment, data[13])]
         )
     
     @classmethod
@@ -47,12 +53,34 @@ class SimpleEmail:
             else:
                 from_name = ''
         return from_name
+    
+    @classmethod
+    def from_attachment(cls, data):
+        return dict(
+            attachment_id = data[1],
+            content_type = data[3],
+            content_transfer = data[4],
+            content_id = data[5],
+            filename = data[6],
+            folder = data[7]
+        )
         
 @dataclass
 class SimpleEmailBody:
     content_type: str
     content_transfer: str
     content: str
+
+@dataclass
+class Attachment:
+    content_type: str
+    content_transfer: str
+    content_id: str
+    name: str
+    filename: str
+    data: str
+    raw_data: bytes = None
+    a_id: str
 
 class EmailManager:
     
@@ -64,6 +92,7 @@ class EmailManager:
             'draft': EmailDB(get_folder_path(user, 'draft')),
             'spam': EmailDB(get_folder_path(user, 'spam')),
             'bin': EmailDB(get_folder_path(user, 'bin')),
+            'attachments': AttachmentDB(get_folder_path(user, 'inbox', True) + 'attachments.db'),
         })
         self.email_parser = BytesParser()
 
@@ -71,40 +100,95 @@ class EmailManager:
         mail = self.email_parser.parsebytes(mail_data)
         return self.add_mail(folder, mail, return_path, to_real)
 
+    def to_readable_content(self, body: SimpleEmailBody):
+        fbody = body.content
+
+        if body.content_transfer:
+            if body.content_transfer.lower() == 'quoted-printable':
+                fbody = quopri.decodestring(body.content).decode()
+            elif body.content_transfer.lower() == 'base64':
+                fbody = base64.b64decode(body.content).decode()
+            else:
+                fbody = body.content
+        else:
+            fbody = body.content
+
+        return fbody
+
     def add_mail(self, folder: str, mail: EmailMessage, return_path: str, to_real: str):
         bodies = []
+        attachments: list[Attachment] = self.get_attachments(mail)
         self.get_body(mail, bodies)
+        
         fbody: str = None
         
         for body in bodies:
             if body.content_type == 'text/html':
-                fbody = body.content
+                fbody = self.to_readable_content(body)
                 break
 
         if not fbody and bodies:
-            fbody = bodies[0].content
+            fbody = self.to_readable_content(bodies[0])
+
+        mail_id: str = gen_token(10)
 
         insert_data: tuple = (self.folders[folder].count() + 1, 
             mail.get('From', None), mail.get('To', None), to_real,
             mail.get("Subject", None), mail.get("Date", None), mail.get("Message-ID", None), 
-            return_path, ", ".join(self.get_sign(mail)), fbody, None, mail.as_bytes()
+            return_path, ", ".join(self.get_sign(mail)), fbody, ",".join(map(lambda a: a.a_id, attachments)), mail.as_bytes(), mail_id
         )
 
         cursor: sqlite3.Cursor = self.folders[folder].cursor
         cursor.execute(
-            """INSERT INTO emails VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""", 
+            """INSERT INTO emails VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""", 
             insert_data
         )
         self.folders[folder].db.commit()
         self.folders[folder]._count += 1
-        return insert_data
+
+        attach_folder_path = get_folder_path(self.user, 'inbox', True)
+
+        compl_data = (*insert_data, [])
+
+        os.mkdir(attach_folder_path + mail_id)
+
+        for att in attachments:
+            f = open(attach_folder_path + mail_id + '/' + att.a_id, 'wb')
+            f.write(att.raw_data)
+            f.close()
+
+            attach_ins_data: tuple = (
+                self.folders['attachments'].total_count() + 1, att.a_id, mail_id, 
+                att.content_type, att.content_transfer, att.content_id, 
+                att.filename, folder
+            )
+
+            cursor: sqlite3.Cursor = self.folders['attachments'].cursor
+            cursor.execute(
+                """INSERT INTO attachments VALUES (?, ?, ?, ?, ?, ?, ?, ?);""",
+                attach_ins_data
+            )
+            self.folders['attachments'].db.commit()
+            self.folders['attachments']._count += 1
+
+            compl_data[13].append(attach_ins_data)
+
+        return compl_data
     
     def get_mails(self, folder: str, limit: int = 50, offset: int = 0):
         data = self.folders[folder].cursor.execute(
             """SELECT * from emails ORDER BY srno DESC LIMIT ? OFFSET ?;""", (50, 0)
         ).fetchall()
 
-        return [*map(SimpleEmail.from_mail, data)]
+        new_data = []
+
+        for mail in data:
+            ins_tup = (*mail, [])
+            for att in self.folders['attachments'].get_attachments(mail[12]):
+                ins_tup[13].append((0, att[0], mail[12], att[1], att[2], att[3], att[4], att[5]))
+            new_data.append(ins_tup)
+
+        return [*map(SimpleEmail.from_mail, new_data)]
 
     def get_sign(self, email: EmailMessage):
         _sign_doms = []
@@ -117,6 +201,7 @@ class EmailManager:
     
     def get_body(self, email: EmailMessage, _bodies: list[SimpleEmailBody] = []) -> list[SimpleEmailBody]:
         bodies: list[SimpleEmailBody] = _bodies
+        if not isinstance(email, (EmailMessage, Message)): return
         if email.get_content_type() not in ['text/plain', 'text/html']:
             for payload in email.get_payload():
                 self.get_body(payload, bodies)
@@ -128,3 +213,34 @@ class EmailManager:
                     content_transfer = email.get('Content-Transfer-Encoding', None)
                 )
             )
+
+    def get_attachments(self, email: EmailMessage):
+        attach: list[Attachment] = []
+        if not isinstance(email, (EmailMessage, Message)): return attach
+        if email.get_content_disposition():
+            if email.get_content_disposition().lower() != 'attachment':
+                for payload in email.get_payload():
+                    for a in self.get_attachments(payload):
+                        attach.append(a)
+                return attach
+        
+        else:
+            attachment = Attachment(
+                content_type = email.get_content_type(),
+                content_transfer = email.get('Content-Transfer-Encoding', None),
+                content_id = email.get('Content-ID', None),
+                filename = email.get_filename(),
+                name = email.get_filename(),
+                data = email.get_payload(),
+                raw_data = email.get_payload(),
+                a_id = gen_token(10)
+            )
+            
+            if email.get_payload() and attachment.content_transfer:
+                if attachment.content_transfer.lower() == 'base64':
+                    attachment.raw_data = base64.b64decode(email.get_payload())
+                elif attachment.content_transfer.lower() == 'quoted-printable':
+                    attachment.raw_data = quopri.decodestring(email.get_payload())
+
+            attach.append(attachment)
+            return attach

@@ -170,6 +170,9 @@ class SayutelMailServer:
 
                                             if self.bdat_last:
                                                 asyncio.gather(self.process_mail_data(self.info.mail_data))
+                                            else:
+                                                self.write_to_client("250 next\r\n")
+
                                     elif self.data_cmd == 0:
                                         if self.buff.endswith(b'\r\n.\r\n'):
                                             self.info.mail_data = self.buff[:-5]

@@ -113,7 +113,7 @@ class SputhMailer(ws.ServerSocket):
                 'name': userData[data.user]['name'],
                 'extern': userData[data.user]['extern']
             })
-            channel.manager = EmailManager(data.user + '@sputh.me')
+            channel.manager = EmailManager(data.user + '@sayutel.com')
             await self.send_msg(channel.client, {'auth': 1}, channel.pub_key)
         else:
             await self.send_msg(channel.client, {'auth': 0}, channel.pub_key)

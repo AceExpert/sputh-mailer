@@ -49,7 +49,7 @@ def get_dns_record(domain: str, record: str) -> list[DnsRecord]:
 def get_email(text: str) -> list[str]:
     return re.findall(email_pattern, text)
 
-def get_folder_path(user: str, folder: str) -> str:
+def get_folder_path(user: str, folder: str, attachment: bool = False) -> str:
     parts = user.lower().split('@', 1)
     user_id = None
     domain = None
@@ -66,6 +66,8 @@ def get_folder_path(user: str, folder: str) -> str:
     get_dom_folder_path = lambda dom: db_folder + f'/drive/{dom}'
     
     if os.path.exists(get_dom_folder_path(domain)):
+        if attachment:
+            return f'/drive/{domain}/{user_id}/emails/_attachments/'
         return get_path(domain)
     else:
         db = sqlite3.connect(auth_dir + '/users.db')
@@ -73,6 +75,8 @@ def get_folder_path(user: str, folder: str) -> str:
         for info in cursor.execute('SELECT user_id, domain, dom_alias FROM users WHERE user_id=?', (user_id,)).fetchall():
             if domain in info[3].split(','):
                 db.close()
+                if attachment:
+                    return f'/drive/{info[2]}/{user_id}/emails/_attachments/'
                 return get_path(info[2])
 
 def get_name_from_header(txt: str) -> str:
