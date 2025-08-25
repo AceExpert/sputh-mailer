@@ -67,7 +67,7 @@ def get_folder_path(user: str, folder: str, attachment: bool = False) -> str:
     
     if os.path.exists(get_dom_folder_path(domain)):
         if attachment:
-            return f'/drive/{domain}/{user_id}/emails/_attachments/'
+            return db_folder + f'/drive/{domain}/{user_id}/emails/_attachments/'
         return get_path(domain)
     else:
         db = sqlite3.connect(auth_dir + '/users.db')
@@ -76,7 +76,7 @@ def get_folder_path(user: str, folder: str, attachment: bool = False) -> str:
             if domain in info[3].split(','):
                 db.close()
                 if attachment:
-                    return f'/drive/{info[2]}/{user_id}/emails/_attachments/'
+                    return db_folder + f'/drive/{info[2]}/{user_id}/emails/_attachments/'
                 return get_path(info[2])
 
 def get_name_from_header(txt: str) -> str:
