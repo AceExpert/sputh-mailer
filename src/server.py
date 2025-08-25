@@ -212,8 +212,8 @@ class SayutelMailServer:
                             await fns(self.mailserver.owner_obj, self.info, ins_data)
                         else:
                             await fns(self.info, ins_data)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(e)
 
             self.write_to_client(b'250 Received Thank you\r\n')
             
