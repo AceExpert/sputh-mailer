@@ -19,7 +19,7 @@ from server import SayutelMailServer, SMTPClientInfo
 ws.Message.client = property(lambda self: self.author)
 
 sslctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-sslctx.load_cert_chain('/etc/letsencrypt/archive/sayutel.com/fullchain1.pem', '/etc/letsencrypt/archive/sayutel.com/privkey1.pem')
+sslctx.load_cert_chain('/etc/letsencrypt/archive/mail.sayutel.com/fullchain1.pem', '/etc/letsencrypt/archive/mail.sayutel.com/privkey1.pem')
 
 class AccessDB:
 
