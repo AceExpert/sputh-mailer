@@ -1,6 +1,7 @@
 import json
 import smtplib
 import ssl
+import sqlite3
 
 import ws
 
@@ -15,17 +16,18 @@ from mailcomposer import MailComposer
 
 from server import SayutelMailServer, SMTPClientInfo
 
-userData = {
-    'anshul': {
-        'pswd': 'Anshul@7329',
-        'name': 'Anshul Singh',
-        'extern': {
-            'domains': [{'name': 'gmail.com', 'key': ''}, {'name': 'kgpian.iitkgp.ac.in', 'key': ''}]
-        },
-    }
-}
-
 ws.Message.client = property(lambda self: self.author)
+
+class AccessDB:
+
+    def __init__(self):
+        self.db = sqlite3.connect('/home/db/sputhmail/access.db')
+        self.cursor = self.db.cursor()
+
+    def get_user(self, token: str):
+        user = self.cursor.execute("SELECT user from users WHERE token=?;", (token,)).fetchone()
+        if user:
+            return user[0]
 
 class SputhMailer(ws.ServerSocket):
 
@@ -34,16 +36,17 @@ class SputhMailer(ws.ServerSocket):
         self.open_channels: dict[Any, Channel] = {}
         self.smtp_client: smtplib.SMTP = None
         self.ecc = ECC()
+        self.access_db = AccessDB()
         self.mailserver = SayutelMailServer(None)
         self.mailserver.add_listener(self.on_mail)
 
     async def on_mail(self, info: SMTPClientInfo, data: tuple, folder: str = None, category: str = None):
-        print('Received from:', info.ehlo_domain)
-        print('Return-Path:', info.mail_from)
-        print('RCPT TO:', info.rcpt_to)
-        print('Encrypted:', info.is_tls)
-        print()
-        print(data)
+        # print('Received from:', info.ehlo_domain)
+        # print('Return-Path:', info.mail_from)
+        # print('RCPT TO:', info.rcpt_to)
+        # print('Encrypted:', info.is_tls)
+        # print()
+        # print(data)
         for user in info.rcpt_to:
             for chans in self.open_channels.values():
                 if chans.user == user.lower():
@@ -105,15 +108,14 @@ class SputhMailer(ws.ServerSocket):
                 channel.current_key = None
 
     async def auth_req(self, channel: Channel, data: dict):
-        if data.user in userData and userData[data.user]['pswd'] == data.pswd:
+        if user := self.access_db.get_user(data.token):
             channel.auth = True
-            channel.user = data.user
+            channel.user = user
             channel.info = ws.Object({
-                'user': data.user,
-                'name': userData[data.user]['name'],
-                'extern': userData[data.user]['extern']
+                'user': user.split('@')[0],
+                'name': user.split('@')[0].title(),
             })
-            channel.manager = EmailManager(data.user + '@sayutel.com')
+            channel.manager = EmailManager(data.user)
             await self.send_msg(channel.client, {'auth': 1}, channel.pub_key)
         else:
             await self.send_msg(channel.client, {'auth': 0}, channel.pub_key)

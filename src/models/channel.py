@@ -39,7 +39,7 @@ class EmailDB:
             self.count()
 
     def check_table(self):
-        self.cursor.execute("CREATE TABLE IF NOT EXISTS emails(srno, from_addr, to_addr, to_real, subject, date, message_id, return_path, sign, body, attachments, raw, m_id);")
+        self.cursor.execute("CREATE TABLE IF NOT EXISTS emails(srno, from_addr, to_addr, to_real, subject, date, message_id, return_path, sign, body, attachments, raw, m_id, is_tls);")
         self.table_exists = True
 
     def count(self):
@@ -63,7 +63,7 @@ class AttachmentDB:
             self.total_count()
 
     def check_table(self):
-        self.cursor.execute("CREATE TABLE IF NOT EXISTS attachments(srno, attachment_id, m_id, content_type, content_transfer, content_id, filename, folder);")
+        self.cursor.execute("CREATE TABLE IF NOT EXISTS attachments(srno, attachment_id, m_id, content_type, content_transfer, content_id, filename, folder, size);")
         self.table_exists = True
 
     def total_count(self):
@@ -79,4 +79,4 @@ class AttachmentDB:
             return self.count_cache[m_id]
         
     def get_attachments(self, m_id: str):
-        return self.cursor.execute("SELECT attachment_id, content_type, content_transfer, content_id, filename, folder, m_id FROM attachments WHERE m_id=?;", (m_id,)).fetchall()
+        return self.cursor.execute("SELECT attachment_id, content_type, content_transfer, content_id, filename, folder, m_id, size FROM attachments WHERE m_id=?;", (m_id,)).fetchall()

@@ -62,7 +62,8 @@ class SimpleEmail:
             content_transfer = data[4],
             content_id = data[5],
             filename = data[6],
-            folder = data[7]
+            folder = data[7],
+            size = data[8]
         )
         
 @dataclass
@@ -79,8 +80,9 @@ class Attachment:
     name: str
     filename: str
     data: str
-    raw_data: bytes = None
     a_id: str
+    size: int
+    raw_data: bytes = None
 
 class EmailManager:
     
@@ -96,9 +98,9 @@ class EmailManager:
         })
         self.email_parser = BytesParser()
 
-    def add_raw_mail(self, folder: str, mail_data: bytes, return_path: str, to_real: str):
+    def add_raw_mail(self, folder: str, mail_data: bytes, return_path: str, to_real: str, is_tls: bool = True):
         mail = self.email_parser.parsebytes(mail_data)
-        return self.add_mail(folder, mail, return_path, to_real)
+        return self.add_mail(folder, mail, return_path, to_real, is_tls)
 
     def to_readable_content(self, body: SimpleEmailBody):
         fbody = body.content
@@ -115,7 +117,7 @@ class EmailManager:
 
         return fbody
 
-    def add_mail(self, folder: str, mail: EmailMessage, return_path: str, to_real: str):
+    def add_mail(self, folder: str, mail: EmailMessage, return_path: str, to_real: str, is_tls: bool = True):
         bodies = []
         attachments: list[Attachment] = self.get_attachments(mail)
         self.get_body(mail, bodies)
@@ -135,12 +137,12 @@ class EmailManager:
         insert_data: tuple = (self.folders[folder].count() + 1, 
             mail.get('From', None), mail.get('To', None), to_real,
             mail.get("Subject", None), mail.get("Date", None), mail.get("Message-ID", None), 
-            return_path, ", ".join(self.get_sign(mail)), fbody, ",".join(map(lambda a: a.a_id, attachments)), mail.as_bytes(), mail_id
+            return_path, ", ".join(self.get_sign(mail)), fbody, ",".join(map(lambda a: a.a_id, attachments)), mail.as_bytes(), mail_id, is_tls
         )
 
         cursor: sqlite3.Cursor = self.folders[folder].cursor
         cursor.execute(
-            """INSERT INTO emails VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""", 
+            """INSERT INTO emails VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""", 
             insert_data
         )
         self.folders[folder].db.commit()
@@ -160,12 +162,12 @@ class EmailManager:
             attach_ins_data: tuple = (
                 self.folders['attachments'].total_count() + 1, att.a_id, mail_id, 
                 att.content_type, att.content_transfer, att.content_id, 
-                att.filename, folder
+                att.filename, folder, att.size
             )
 
             cursor: sqlite3.Cursor = self.folders['attachments'].cursor
             cursor.execute(
-                """INSERT INTO attachments VALUES (?, ?, ?, ?, ?, ?, ?, ?);""",
+                """INSERT INTO attachments VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);""",
                 attach_ins_data
             )
             self.folders['attachments'].db.commit()
@@ -185,7 +187,7 @@ class EmailManager:
         for mail in data:
             ins_tup = (*mail, [])
             for att in self.folders['attachments'].get_attachments(mail[12]):
-                ins_tup[13].append((0, att[0], mail[12], att[1], att[2], att[3], att[4], att[5]))
+                ins_tup[13].append((0, att[0], mail[12], att[1], att[2], att[3], att[4], att[5], att[7]))
             new_data.append(ins_tup)
 
         return [*map(SimpleEmail.from_mail, new_data)]
@@ -217,8 +219,7 @@ class EmailManager:
     def get_attachments(self, email: EmailMessage):
         attach: list[Attachment] = []
         if not isinstance(email, (EmailMessage, Message)): return attach
-        if email.get_content_disposition():
-            if email.get_content_disposition().lower() != 'attachment':
+        if not email.get_content_disposition() or email.get_content_disposition().lower() != 'attachment':
                 for payload in email.get_payload():
                     for a in self.get_attachments(payload):
                         attach.append(a)
@@ -232,15 +233,21 @@ class EmailManager:
                 filename = email.get_filename(),
                 name = email.get_filename(),
                 data = email.get_payload(),
-                raw_data = email.get_payload(),
-                a_id = gen_token(10)
+                raw_data = email.get_payload(decode = True),
+                a_id = gen_token(10),
+                size = None
             )
             
+            '''
             if email.get_payload() and attachment.content_transfer:
                 if attachment.content_transfer.lower() == 'base64':
                     attachment.raw_data = base64.b64decode(email.get_payload())
                 elif attachment.content_transfer.lower() == 'quoted-printable':
                     attachment.raw_data = quopri.decodestring(email.get_payload())
+            '''
+
+            attachment.size = len(attachment.raw_data)
+            email.set_payload(None)
 
             attach.append(attachment)
             return attach

@@ -6,7 +6,6 @@ import re
 
 from db import EmailManager
 
-
 sslctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 sslctx.load_cert_chain('/etc/letsencrypt/archive/sayutel.com/cert1.pem', '/etc/letsencrypt/archive/sayutel.com/privkey1.pem')
 
@@ -57,7 +56,11 @@ class SayutelMailServer:
             if self.info.tls_attempt and not self.info.is_tls:
                 self.write_queue.append(data)
             elif not self.info.tls_attempt or (self.info.tls_attempt and self.info.is_tls):
-                self.transport.write(data)
+                try:
+                    self.transport.write(data)
+                except Exception:
+                    pass
+
 
         def connection_made(self, transport):
             pass
@@ -202,7 +205,7 @@ class SayutelMailServer:
 
             for user in self.info.rcpt_to:
                 db = EmailManager(user)
-                ins_data: tuple = db.add_raw_mail('inbox', data, self.info.mail_from, user)
+                ins_data: tuple = db.add_raw_mail('inbox', data, self.info.mail_from, user, self.info.is_tls)
                 for fns in self.mailserver.listeners:
                     try:
                         if self.mailserver.owner_obj:
