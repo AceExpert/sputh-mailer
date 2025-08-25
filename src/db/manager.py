@@ -41,7 +41,8 @@ class SimpleEmail:
             to_name = SimpleEmail.resolve_name(data[2]),
             domain = data[7].split('@')[1],
             mail_id = data[12],
-            attachments = [*map(SimpleEmail.from_attachment, data[13])]
+            is_tls = data[13],
+            attachments = [*map(SimpleEmail.from_attachment, data[14])] if data[14] else []
         )
     
     @classmethod
@@ -187,7 +188,7 @@ class EmailManager:
         for mail in data:
             ins_tup = (*mail, [])
             for att in self.folders['attachments'].get_attachments(mail[12]):
-                ins_tup[13].append((0, att[0], mail[12], att[1], att[2], att[3], att[4], att[5], att[7]))
+                ins_tup[14].append((0, att[0], mail[12], att[1], att[2], att[3], att[4], att[5], att[7]))
             new_data.append(ins_tup)
 
         return [*map(SimpleEmail.from_mail, new_data)]
