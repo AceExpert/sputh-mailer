@@ -86,7 +86,7 @@ class SputhMailer(ws.ServerSocket):
 
             if 'en' in data:
                 fdata = ws.Object(json.loads(self.ecc.decrypt(data.en, key)))
-                print(fdata)
+                #print(fdata)
                 if 'action' in fdata:
                     
                     if fdata.action == 0:
@@ -131,11 +131,11 @@ class SputhMailer(ws.ServerSocket):
 
     async def send_mail(self, channel: Channel, data: dict):
         #from_address = get_email(data['from'])
-        from_dom = data['fromDomain'][0]
+        from_dom = channel.user.split("@", 1)[-1].lower()
         to_address = get_email(data['toAddr'])[0]
         mail = MailComposer(channel.info.name, channel.info.user, from_dom, to = to_address, subject = data.get("subject", None), content = data.get('content', None))
         mail.set_html(data['html'] if 'html' in data and data.get('html', None) else data.get('content', None))
-        mail.sign(data['sign'][0], 'dragon')
+        mail.sign(from_dom, 'dragon')
         self.records: list[DnsRecord] = get_dns_record(to_address.split("@")[1], "MX")
         if not self.records:
             return await self.send_msg(channel.client, {'error': 1, 'msg': "domain does not accept emails", 'resp': data.get('id', None)}, channel.pub_key)
