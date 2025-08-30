@@ -177,11 +177,15 @@ class SputhMailer(ws.ServerSocket):
             pass
 
         try:
-            self.open_channels[client.remote_address].stale_timer.stop()
-            self.open_channels[client.remote_address].hb_timer.stop()
-            del self.open_channels[client.remote_address]
+            if client.remote_address in self.open_channels:
+                self.open_channels[client.remote_address].stale_timer.stop()
+                self.open_channels[client.remote_address].hb_timer.stop()
         except Exception:
             pass
+        
+        if client.remote_address in self.open_channels:
+            self.open_channels.pop(client.remote_address)
+        
 
 server = SputhMailer()
 
