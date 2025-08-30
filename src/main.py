@@ -53,7 +53,11 @@ class SputhMailer(ws.ServerSocket):
         for user in info.rcpt_to:
             for chans in self.open_channels.values():
                 if chans.user.lower() == user.lower():
-                    await self.send_msg(chans.client, {'folder': folder or 'inbox', 'event': 1, 'mail': SimpleEmail.from_mail(data)}, chans.pub_key)
+                    if not chans.client.closed:
+                        try:
+                            await self.send_msg(chans.client, {'folder': folder or 'inbox', 'event': 1, 'mail': SimpleEmail.from_mail(data)}, chans.pub_key)
+                        except Exception:
+                            pass
 
     async def on_ready(self):
         print("Server listening @ 0.0.0.0:3008")
