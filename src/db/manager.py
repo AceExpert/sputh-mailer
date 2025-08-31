@@ -206,8 +206,12 @@ class EmailManager:
         bodies: list[SimpleEmailBody] = _bodies
         if not isinstance(email, (EmailMessage, Message)): return
         if email.get_content_type() not in ['text/plain', 'text/html']:
-            for payload in email.get_payload():
-                self.get_body(payload, bodies)
+            if payl := email.get_payload():
+                if type(payl) == list:
+                    for payload in payl:
+                        self.get_body(payload, bodies)
+                else:
+                    self.get_body(payl, bodies)
         
         else:
             bodies.append(SimpleEmailBody(
@@ -229,7 +233,7 @@ class EmailManager:
                 else:
                     for a in self.get_attachments(payl):
                         attach.append(a)
-                return attach
+            return attach
         
         else:
             attachment = Attachment(
