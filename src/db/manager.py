@@ -174,7 +174,7 @@ class EmailManager:
             self.folders['attachments'].db.commit()
             self.folders['attachments']._count += 1
 
-            compl_data[13].append(attach_ins_data)
+            compl_data[14].append(attach_ins_data)
 
         return compl_data
     
