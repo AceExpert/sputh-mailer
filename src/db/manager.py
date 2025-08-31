@@ -153,7 +153,8 @@ class EmailManager:
 
         compl_data = (*insert_data, [])
 
-        os.mkdir(attach_folder_path + mail_id)
+        if attachments:
+            os.mkdir(attach_folder_path + mail_id)
 
         for att in attachments:
             f = open(attach_folder_path + mail_id + '/' + att.a_id, 'wb')
