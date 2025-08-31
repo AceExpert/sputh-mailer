@@ -221,8 +221,13 @@ class EmailManager:
         attach: list[Attachment] = []
         if not isinstance(email, (EmailMessage, Message)): return attach
         if not email.get_content_disposition() or email.get_content_disposition().lower() != 'attachment':
-                for payload in email.get_payload():
-                    for a in self.get_attachments(payload):
+            if payl := email.get_payload():
+                if type(payl) == list:
+                    for payload in payl:
+                        for a in self.get_attachments(payload):
+                            attach.append(a)
+                else:
+                    for a in self.get_attachments(payl):
                         attach.append(a)
                 return attach
         
