@@ -50,11 +50,15 @@ class SputhMailer(ws.ServerSocket):
         # print('Encrypted:', info.is_tls)
         # print()
         # print(data)
+        from pprint import pprint
+        pprint(SimpleEmail.from_mail(data))
+        
         for user in info.rcpt_to:
             for chans in self.open_channels.values():
                 if chans.user.lower() == user.lower():
                     if not chans.client.closed:
                         try:
+                            
                             await self.send_msg(chans.client, {'folder': folder or 'inbox', 'event': 1, 'mail': SimpleEmail.from_mail(data)}, chans.pub_key)
                         except Exception:
                             pass
@@ -178,8 +182,8 @@ class SputhMailer(ws.ServerSocket):
 
         try:
             if client.remote_address in self.open_channels:
-                self.open_channels[client.remote_address].stale_timer.stop()
                 self.open_channels[client.remote_address].hb_timer.stop()
+                self.open_channels[client.remote_address].stale_timer.stop()
         except Exception:
             pass
         
