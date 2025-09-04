@@ -39,7 +39,7 @@ class MailComposer:
             self.html.add_header("Content-Type", "text/html", charset="UTF-8")
             self.html.add_header("Content-Transfer-Encoding", "quoted-printable")
             self.html.set_payload(quopri.encodestring(
-                ('''<div><div><div>''' + content + '''</div>''' + ('<br/><br/><div><p style="color:mediumpurple;margin:5px 0px;">Sent using SayuMail by Sayutel</p></div>' if watermark else '') + '</div></div>').encode()
+                ('''<div><div><div>''' + content + '''</div>''' + ('<br/><br/><div><p style="color:mediumpurple;margin:5px 0px;">Sent using Sputh Mail by Sayutel</p></div>' if watermark else '') + '</div></div>').encode()
             ).decode())
         self.message.attach(self.html)
         return self
