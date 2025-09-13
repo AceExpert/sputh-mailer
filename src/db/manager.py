@@ -42,6 +42,7 @@ class SimpleEmail:
             domain = data[7].split('@')[1],
             mail_id = data[12],
             is_tls = data[13],
+            extras = SimpleEmail.get_extras(data[11]),
             attachments = [*map(SimpleEmail.from_attachment, data[14])] if data[14] else []
         )
     
@@ -66,6 +67,14 @@ class SimpleEmail:
             folder = data[7],
             size = data[8]
         )
+    
+    @classmethod
+    def get_extras(cls, raw_data: bytes):
+        extras = {}
+        mail = BytesParser().parsebytes(raw_data, True)
+        extras['references'] = mail.get("references")
+        extras['in_reply_to'] = mail.get("in-reply-to")
+        return extras 
         
 @dataclass
 class SimpleEmailBody:
