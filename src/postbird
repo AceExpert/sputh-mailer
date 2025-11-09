@@ -2,6 +2,9 @@
 import smtplib
 import sys
 import enum
+import quopri
+
+from email.message import EmailMessage
 
 from db import EmailManager
 from mailcomposer import MailComposer
@@ -11,7 +14,7 @@ class State(enum.Enum):
     start = 0
     value = 1
 
-opts = ['--to', '-t', '--from', '-f', '--name', '-n', '--message', '-m', '--subject', '-s', '--domain', '-d', '-w', '--folder', '-l', '--no-save']
+opts = ['--to', '-t', '--from', '-f', '--name', '-n', '--message', '-m', '--subject', '-s', '--domain', '-d', '-w', '--folder', '-l', '--no-save', '-h', '--html', '--to-name', '--sign', '--raw-sign']
 
 args = sys.argv
 
@@ -22,10 +25,14 @@ data = {
     'to': [],
     'from': '',
     'domain': '',
+    'sign': '',
+    'raw_sign': None,
     'message': '',
+    'html': None,
     'subject': '',
     'watermark': False,
     'folder': 'sent',
+    'to_name': None,
     'no_save': False,
 }
 
@@ -60,6 +67,14 @@ for arg in args:
             data['name'] = arg
         elif opt == '--folder' or opt == '-l':
             data['folder'] = arg
+        elif opt == '--html' or opt == '-h':
+            data['html'] = arg
+        elif opt == '--to-name':
+            data['to_name'] = arg
+        elif opt == '--sign':
+            data['sign'] = arg
+        elif opt == '--raw-sign':
+            data['raw_sign'] = arg
 
         state = State.start
 
@@ -80,18 +95,32 @@ db = None
 if not data['no_save']:
     db = EmailManager(f'{user}@{domain}')
 
-composer = MailComposer(data.get('name', user), user, domain, to_real, subject = data['subject'])
+composer = MailComposer(data.get('name', user), user, domain, ((data['to_name'] if data['to_name'] else '') + ' ' + to_real).strip(), subject = data['subject'])
 
 composer.set_content(data['message'])
-composer.set_html(data['message'], watermark = data['watermark'])
-composer.sign(domain, 'dragon', data['from'])
+
+if data['raw_sign']:
+    composer.message.add_header("DKIM-Signature", data['raw_sign'])
+elif data['sign']:
+    composer.sign(data['sign'], 'dragon', data['from'])
+else:
+    composer.sign(domain, 'dragon', data['from'])
+
+if data['html']:
+    html = EmailMessage()
+    html.add_header("Content-Type", "text/html", charset="UTF-8")
+    html.add_header("Content-Transfer-Encoding", "quoted-printable")
+    html.set_payload(quopri.encodestring(data['html'].encode()).decode())
+    composer.message.attach(html)
+else:
+    composer.set_html(data['message'], watermark = data['watermark'])
 
 segmented_mails = {}
 
 for em in data['to']:
     domain = em.split('@')[1]
-    segmented_mails.setdefault(domain, [])
-    segmented_mails[domain].append(em)
+    segmented_mails.setdefault(domain.lower(), [])
+    segmented_mails[domain.lower()].append(em)
 
 for domain, emails in segmented_mails.items():
     records = get_dns_record(domain, 'MX')
