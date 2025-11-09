@@ -100,13 +100,6 @@ composer = MailComposer(data.get('name', user), user, domain, ((data['to_name'] 
 if data['message']:
     composer.set_content(data['message'])
 
-if data['raw_sign']:
-    composer.message.add_header("DKIM-Signature", data['raw_sign'])
-elif data['sign']:
-    composer.sign(data['sign'], 'dragon', ('sayu@' + data['sign']) if data['sign'] != domain else data['from'])
-else:
-    composer.sign(domain, 'dragon', data['from'])
-
 if data['html']:
     html = EmailMessage()
     html.add_header("Content-Type", "text/html", charset="UTF-8")
@@ -115,6 +108,13 @@ if data['html']:
     composer.message.attach(html)
 else:
     composer.set_html(data['message'], watermark = data['watermark'])
+
+if data['raw_sign']:
+    composer.message.add_header("DKIM-Signature", data['raw_sign'])
+elif data['sign']:
+    composer.sign(data['sign'], 'dragon', ('sayu@' + data['sign']) if data['sign'] != domain else data['from'])
+else:
+    composer.sign(domain, 'dragon', data['from'])
 
 segmented_mails = {}
 
