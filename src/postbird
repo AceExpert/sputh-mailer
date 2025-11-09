@@ -97,7 +97,8 @@ if not data['no_save']:
 
 composer = MailComposer(data.get('name', user), user, domain, ((data['to_name'] if data['to_name'] else '') + ' ' + to_real).strip(), subject = data['subject'])
 
-composer.set_content(data['message'])
+if data['message']:
+    composer.set_content(data['message'])
 
 if data['raw_sign']:
     composer.message.add_header("DKIM-Signature", data['raw_sign'])
