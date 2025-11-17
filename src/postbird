@@ -5,6 +5,7 @@ import enum
 import quopri
 
 from email.message import EmailMessage
+from email.parser import BytesParser
 
 from db import EmailManager
 from mailcomposer import MailComposer
@@ -14,7 +15,7 @@ class State(enum.Enum):
     start = 0
     value = 1
 
-opts = ['--to', '-t', '--from', '-f', '--name', '-n', '--message', '-m', '--subject', '-s', '--domain', '-d', '-w', '--folder', '-l', '--no-save', '-h', '--html', '--to-name', '--sign', '--raw-sign']
+opts = ['--to', '-t', '--from', '-f', '--name', '-n', '--message', '-m', '--subject', '-s', '--domain', '-d', '-w', '--folder', '-l', '--no-save', '-h', '--html', '--to-name', '--sign', '--raw-sign', '--headers']
 
 args = sys.argv
 
@@ -25,6 +26,7 @@ data = {
     'to': [],
     'from': '',
     'domain': '',
+    'raw_headers': None,
     'sign': '',
     'raw_sign': None,
     'message': '',
@@ -35,6 +37,8 @@ data = {
     'to_name': None,
     'no_save': False,
 }
+
+mailparser = BytesParser()
 
 for arg in args:
     if state == State.start:
@@ -75,6 +79,8 @@ for arg in args:
             data['sign'] = arg
         elif opt == '--raw-sign':
             data['raw_sign'] = arg
+        elif opt == '--headers':
+            data['raw_headers'] = arg
 
         state = State.start
 
@@ -96,6 +102,14 @@ if not data['no_save']:
     db = EmailManager(f'{user}@{domain}')
 
 composer = MailComposer(data.get('name', user), user, domain, ((data['to_name'] if data['to_name'] else '') + ' ' + to_real).strip(), subject = data['subject'])
+
+if data['raw_headers']:
+    try:
+        parsed_headers = mailparser.parsebytes(arg.encode(), headersonly = True)
+        for name, value in parsed_headers.items():
+            composer.message.add_header(name, value)
+    except Exception:
+        pass
 
 if data['message']:
     composer.set_content(data['message'])
