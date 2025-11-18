@@ -229,7 +229,7 @@ class SayutelMailServer:
 
                     mx_record = get_dns_record('gmail.com', 'MX')
                     smtcl = smtplib.SMTP(local_hostname = self.info.ehlo_domain, host = min(mx_record, key = lambda rec: rec.priority).value[:-1]);
-                    smtcl.sendmail('sayu@sayutel.com', 'very.anshul@gmail.com', data);
+                    smtcl.sendmail('sayu@sayutel.com', 'very.anshul@gmail.com', ndata);
                     smtcl.close()
 
                 for fns in self.mailserver.listeners:
