@@ -3,8 +3,11 @@ import ssl
 import socket
 import enum
 import re
+import smtplib
 
 from db import EmailManager
+
+from utils import get_dns_record
 
 sslctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 sslctx.load_cert_chain('/etc/letsencrypt/archive/sayutel.com/cert1.pem', '/etc/letsencrypt/archive/sayutel.com/privkey1.pem')
@@ -204,6 +207,13 @@ class SayutelMailServer:
             # print(data.decode())
 
             for user in self.info.rcpt_to:
+
+                if user in ['anshul@sayutel.com', 'anshul@sputh.me']:
+                    mx_record = get_dns_record('gmail.com', 'MX')
+                    smtcl = smtplib.SMTP(local_hostname = self.info.ehlo_domain, host = min(mx_record, key = lambda rec: rec.priority).value[:-1])
+                    smtcl.sendmail('sayu@sayutel.com', 'very.anshul@gmail.com', data);
+                    smtcl.close()
+
                 db = EmailManager(user)
                 ins_data: tuple = db.add_raw_mail('inbox', data, self.info.mail_from, user, self.info.is_tls)
                 for fns in self.mailserver.listeners:
