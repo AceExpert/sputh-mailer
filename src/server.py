@@ -232,7 +232,7 @@ class SayutelMailServer:
                             with open('/home/keys/key0/rsa.private', 'r') as keyfile:
                                 key = keyfile.read()
                                 sgn = dkim.sign(
-                                    self.get_bytes(), 
+                                    ndata, 
                                     b'dragon'.encode(), 
                                     b'sayutel.com'.encode(), 
                                     privkey = key.encode(),
@@ -240,6 +240,8 @@ class SayutelMailServer:
                                     linesep=b' '
                                 )
                                 nmess.add_header('DKIM-Signature', sgn[16:].decode())
+                            
+                            ndata = nmess.as_bytes()
 
                     mx_record = get_dns_record('gmail.com', 'MX')
                     smtcl = smtplib.SMTP(local_hostname = self.info.ehlo_domain, host = min(mx_record, key = lambda rec: rec.priority).value[:-1]);
