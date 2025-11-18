@@ -5,6 +5,8 @@ import enum
 import re
 import smtplib
 
+import dkim
+
 from email.parser import BytesParser
 
 from db import EmailManager
@@ -226,6 +228,18 @@ class SayutelMailServer:
                             nmess.add_header('Sender', ins_data[1])
                             nmess.add_header('Reply-To', ins_data[1])
                             ndata = nmess.as_bytes()
+
+                            with open('/home/keys/key0/rsa.private', 'r') as keyfile:
+                                key = keyfile.read()
+                                sgn = dkim.sign(
+                                    self.get_bytes(), 
+                                    b'dragon'.encode(), 
+                                    b'sayutel.com'.encode(), 
+                                    privkey = key.encode(),
+                                    include_headers = [b'From', b'To', b'Message-ID'] + ([b'Subject'] if nmess.get('subject', None) else []),
+                                    linesep=b' '
+                                )
+                                nmess.add_header('DKIM-Signature', sgn[16:].decode())
 
                     mx_record = get_dns_record('gmail.com', 'MX')
                     smtcl = smtplib.SMTP(local_hostname = self.info.ehlo_domain, host = min(mx_record, key = lambda rec: rec.priority).value[:-1]);
