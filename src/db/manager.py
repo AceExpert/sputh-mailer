@@ -108,8 +108,8 @@ class EmailManager:
         })
         self.email_parser = BytesParser()
 
-    def add_raw_mail(self, folder: str, mail_data: bytes, return_path: str, to_real: str, is_tls: bool = True):
-        mail = self.email_parser.parsebytes(mail_data)
+    def add_raw_mail(self, folder: str, mail_data: bytes, return_path: str, to_real: str, is_tls: bool = True, parsed_mail: Message = None):
+        mail = parsed_mail or self.email_parser.parsebytes(mail_data)
         return self.add_mail(folder, mail, return_path, to_real, is_tls)
 
     def to_readable_content(self, body: SimpleEmailBody):

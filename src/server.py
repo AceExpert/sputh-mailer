@@ -5,9 +5,10 @@ import enum
 import re
 import smtplib
 
-from db import EmailManager
+from email.parser import BytesParser
 
-from utils import get_dns_record
+from db import EmailManager
+from utils import get_dns_record, get_email
 
 sslctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 sslctx.load_cert_chain('/etc/letsencrypt/archive/sayutel.com/cert1.pem', '/etc/letsencrypt/archive/sayutel.com/privkey1.pem')
@@ -54,6 +55,8 @@ class SayutelMailServer:
             self.pending_size = 0
             self.bdat_last = False
             self.state = CmdState.START
+
+            self.email_parser = BytesParser()
             
         def write_to_client(self, data: bytes):
             if self.info.tls_attempt and not self.info.is_tls:
@@ -90,7 +93,7 @@ class SayutelMailServer:
                     self.info.mail_data = self.buff[:ind]
                     self.data_cmd = -1
                     if ind + 5 <= len(self.buff) - 1:
-                        self.buff = self.buff[ind + 5]
+                        self.buff = self.buff[ind + 5:]
                     else:
                         self.buff = b''
                     asyncio.gather(self.process_mail_data(self.info.mail_data))
@@ -206,16 +209,29 @@ class SayutelMailServer:
             # print('Encrypted:', self.info.is_tls)
             # print(data.decode())
 
-            for user in self.info.rcpt_to:
+            for user in self.info.rcpt_to:                
+                db = EmailManager(user)
+                ins_data: tuple = db.add_raw_mail('inbox', data, self.info.mail_from, user, self.info.is_tls)
 
                 if user in ['anshul@sayutel.com', 'anshul@sputh.me']:
+                    ndata = data
+                    from_header_addrs = get_email(ins_data[1])
+
+                    if from_header_addrs:
+                        from_h_user, from_h_dom = from_header_addrs[0].split('@')
+                        if from_h_dom not in ins_data[8].split(', '):
+                            nmess = self.email_parser.parsebytes(ndata)
+                            nmess.replace_header('From', ins_data[1].replace(from_header_addrs[0], from_header_addrs[0] + '.invalid'))
+                            del nmess['dkim-signature']
+                            nmess.add_header('Sender', ins_data[1])
+                            nmess.add_header('Reply-To', ins_data[1])
+                            ndata = nmess.as_bytes()
+
                     mx_record = get_dns_record('gmail.com', 'MX')
-                    smtcl = smtplib.SMTP(local_hostname = self.info.ehlo_domain, host = min(mx_record, key = lambda rec: rec.priority).value[:-1])
+                    smtcl = smtplib.SMTP(local_hostname = self.info.ehlo_domain, host = min(mx_record, key = lambda rec: rec.priority).value[:-1]);
                     smtcl.sendmail('sayu@sayutel.com', 'very.anshul@gmail.com', data);
                     smtcl.close()
 
-                db = EmailManager(user)
-                ins_data: tuple = db.add_raw_mail('inbox', data, self.info.mail_from, user, self.info.is_tls)
                 for fns in self.mailserver.listeners:
                     try:
                         if self.mailserver.owner_obj:
