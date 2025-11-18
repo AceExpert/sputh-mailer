@@ -233,8 +233,8 @@ class SayutelMailServer:
                                 key = keyfile.read()
                                 sgn = dkim.sign(
                                     ndata, 
-                                    b'dragon'.encode(), 
-                                    b'sayutel.com'.encode(), 
+                                    b'dragon', 
+                                    b'sayutel.com', 
                                     privkey = key.encode(),
                                     include_headers = [b'From', b'To', b'Message-ID'] + ([b'Subject'] if nmess.get('subject', None) else []),
                                     linesep=b' '
