@@ -80,7 +80,7 @@ for arg in args:
         elif opt == '--raw-sign':
             data['raw_sign'] = arg
         elif opt == '--headers':
-            data['raw_headers'] = arg
+            data['raw_headers'] = arg.encode()
 
         state = State.start
 
@@ -105,7 +105,7 @@ composer = MailComposer(data.get('name', user), user, domain, ((data['to_name'] 
 
 if data['raw_headers']:
     try:
-        parsed_headers = mailparser.parsebytes(arg.encode(), headersonly = True)
+        parsed_headers = mailparser.parsebytes(data['raw_headers'], headersonly = True)
         for name, value in parsed_headers.items():
             composer.message.add_header(name, value)
     except Exception:
