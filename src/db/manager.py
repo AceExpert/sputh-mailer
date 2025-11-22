@@ -234,7 +234,7 @@ class EmailManager:
     def get_attachments(self, email: EmailMessage):
         attach: list[Attachment] = []
         if not isinstance(email, (EmailMessage, Message)): return attach
-        if not email.get_content_disposition() or email.get_content_disposition().lower() != 'attachment':
+        if not email.get_content_disposition() or email.get_content_disposition().lower() not in ['attachment', 'inline']:
             if payl := email.get_payload():
                 if type(payl) == list:
                     for payload in payl:

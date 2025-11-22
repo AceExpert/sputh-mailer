@@ -245,7 +245,36 @@ class SayutelMailServer:
 
                     mx_record = get_dns_record('gmail.com', 'MX')
                     smtcl = smtplib.SMTP(local_hostname = self.info.ehlo_domain, host = min(mx_record, key = lambda rec: rec.priority).value[:-1]);
-                    smtcl.sendmail('sayu@sayutel.com', 'very.anshul@gmail.com', ndata);
+                    
+                    try:
+                        smtcl.sendmail('sayu@sayutel.com', 'very.anshul@gmail.com', ndata);
+                    except Exception:
+                        nmess = self.email_parser.parsebytes(ndata)
+                        nmess.replace_header('From', ins_data[1].replace(from_header_addrs[0], from_header_addrs[0] + '.sayutel.com'))
+                        del nmess['dkim-signature']
+                        del nmess['sender']
+                        del nmess['reply-to']
+                        nmess.add_header('Sender', ins_data[1])
+                        nmess.add_header('Reply-To', ins_data[1])
+                        ndata = nmess.as_bytes()
+
+                        with open('/home/keys/key0/rsa.private', 'r') as keyfile:
+                            key = keyfile.read()
+                            sgn = dkim.sign(
+                                ndata, 
+                                b'dragon', 
+                                b'sayutel.com', 
+                                privkey = key.encode(),
+                                include_headers = [b'From', b'To', b'Message-ID'] + ([b'Subject'] if nmess.get('subject', None) else []),
+                                linesep=b' '
+                            )
+                            nmess.add_header('DKIM-Signature', sgn[16:].decode())
+
+                        ndata = nmess.as_bytes()
+                        smtcl.close()
+                        smtcl = smtplib.SMTP(local_hostname = self.info.ehlo_domain, host = min(mx_record, key = lambda rec: rec.priority).value[:-1]);
+                        smtcl.sendmail('sayu@sayutel.com', 'very.anshul@yahoo.com', ndata);
+                        
                     smtcl.close()
 
                 for fns in self.mailserver.listeners:
