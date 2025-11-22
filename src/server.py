@@ -15,6 +15,22 @@ from utils import get_dns_record, get_email
 sslctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 sslctx.load_cert_chain('/etc/letsencrypt/archive/sayutel.com/cert1.pem', '/etc/letsencrypt/archive/sayutel.com/privkey1.pem')
 
+em_forward_map = [
+    ['very.anshul@gmail.com', ['anshul@sayutel.com', 'anshul@sputh.me']], 
+    ['shaleensingh1998@yahoo.com', ['s@shaleen.net', 'shaleen@shaleen.net', 'queen@shaleen.net', 'adv@shaleen.net', 'advocate@shaleen.net', 'justice@shaleen.net', 'cji@shaleen.net']],      
+]
+
+def is_forward_mail(email):
+    for j, forws in em_forward_map:
+        if email in forws:
+            return True
+    return False
+
+def get_forward_info(email):
+    for j, forws in em_forward_map:
+        if email in forws:
+            return j
+
 class CmdState(enum.Enum):
     START = 0
     MIDDLE = 1
@@ -211,11 +227,11 @@ class SayutelMailServer:
             # print('Encrypted:', self.info.is_tls)
             # print(data.decode())
 
-            for user in self.info.rcpt_to:                
-                db = EmailManager(user)
+            for user in self.info.rcpt_to:
+                db = EmailManager(user, fake = user.lower().split('@')[1] == 'shaleen.net')
                 ins_data: tuple = db.add_raw_mail('inbox', data, self.info.mail_from, user, self.info.is_tls)
 
-                if user in ['anshul@sayutel.com', 'anshul@sputh.me']:
+                if is_forward_mail(user):
                     ndata = data
                     from_header_addrs = get_email(ins_data[1])
 
@@ -243,14 +259,15 @@ class SayutelMailServer:
                             
                             ndata = nmess.as_bytes()
 
-                    mx_record = get_dns_record('gmail.com', 'MX')
+                    to_real_addr = get_forward_info(user)
+                    mx_record = get_dns_record(to_real_addr.split('@')[1], 'MX')
                     smtcl = smtplib.SMTP(local_hostname = self.info.ehlo_domain, host = min(mx_record, key = lambda rec: rec.priority).value[:-1]);
-                    
+
                     try:
-                        smtcl.sendmail('sayu@sayutel.com', 'very.anshul@gmail.com', ndata);
+                        smtcl.sendmail('sayu@sayutel.com', to_real_addr, ndata);
                     except Exception:
                         nmess = self.email_parser.parsebytes(ndata)
-                        nmess.replace_header('From', ins_data[1].replace(from_header_addrs[0], from_header_addrs[0] + '.sayutel.com'))
+                        nmess.replace_header('From', ins_data[1].replace(from_header_addrs[0], from_header_addrs[0] + '.' + user.split('@')[1]))
                         del nmess['dkim-signature']
                         del nmess['sender']
                         del nmess['reply-to']
@@ -273,7 +290,7 @@ class SayutelMailServer:
                         ndata = nmess.as_bytes()
                         smtcl.close()
                         smtcl = smtplib.SMTP(local_hostname = self.info.ehlo_domain, host = min(mx_record, key = lambda rec: rec.priority).value[:-1]);
-                        smtcl.sendmail('sayu@sayutel.com', 'very.anshul@yahoo.com', ndata);
+                        smtcl.sendmail('sayu@sayutel.com', to_real_addr, ndata);
                         
                     smtcl.close()
 

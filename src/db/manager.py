@@ -96,16 +96,19 @@ class Attachment:
 
 class EmailManager:
     
-    def __init__(self, user: str):
+    def __init__(self, user: str, fake: bool = False):
         self.user = user
-        self.folders = Object({
-            'inbox': EmailDB(get_folder_path(user, 'inbox')),
-            'sent': EmailDB(get_folder_path(user, 'sent')),
-            'draft': EmailDB(get_folder_path(user, 'draft')),
-            'spam': EmailDB(get_folder_path(user, 'spam')),
-            'bin': EmailDB(get_folder_path(user, 'bin')),
-            'attachments': AttachmentDB(get_folder_path(user, 'inbox', True) + 'attachments.db'),
-        })
+        self.folders = None
+        if not fake:
+            self.folders = Object({
+                'inbox': EmailDB(get_folder_path(user, 'inbox')),
+                'sent': EmailDB(get_folder_path(user, 'sent')),
+                'draft': EmailDB(get_folder_path(user, 'draft')),
+                'spam': EmailDB(get_folder_path(user, 'spam')),
+                'bin': EmailDB(get_folder_path(user, 'bin')),
+                'attachments': AttachmentDB(get_folder_path(user, 'inbox', True) + 'attachments.db'),
+            })
+        self.fake = fake
         self.email_parser = BytesParser()
 
     def add_raw_mail(self, folder: str, mail_data: bytes, return_path: str, to_real: str, is_tls: bool = True, parsed_mail: Message = None):
@@ -144,25 +147,28 @@ class EmailManager:
 
         mail_id: str = gen_token(10)
 
-        insert_data: tuple = (self.folders[folder].count() + 1, 
+        insert_data: tuple = ((self.folders[folder].count() + 1) if not self.fake else None, 
             mail.get('From', None), mail.get('To', None), to_real,
             mail.get("Subject", None), mail.get("Date", None), mail.get("Message-ID", None), 
             return_path, ", ".join(self.get_sign(mail)), fbody, ",".join(map(lambda a: a.a_id, attachments)), mail.as_bytes(), mail_id, is_tls
         )
 
-        cursor: sqlite3.Cursor = self.folders[folder].cursor
-        cursor.execute(
-            """INSERT INTO emails VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""", 
-            insert_data
-        )
-        self.folders[folder].db.commit()
-        self.folders[folder]._count += 1
+        attach_folder_path = None
 
-        attach_folder_path = get_folder_path(self.user, 'inbox', True)
+        if not self.fake:
+
+            cursor: sqlite3.Cursor = self.folders[folder].cursor
+            cursor.execute(
+                """INSERT INTO emails VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""", 
+                insert_data
+            )
+            self.folders[folder].db.commit()
+            self.folders[folder]._count += 1
+            attach_folder_path = get_folder_path(self.user, 'inbox', True)
 
         compl_data = (*insert_data, [])
 
-        if attachments:
+        if attachments and not self.fake:
             os.mkdir(attach_folder_path + mail_id)
 
         for att in attachments:
@@ -171,18 +177,20 @@ class EmailManager:
             f.close()
 
             attach_ins_data: tuple = (
-                self.folders['attachments'].total_count() + 1, att.a_id, mail_id, 
+                (self.folders['attachments'].total_count() + 1) if not self.fake else None, att.a_id, mail_id, 
                 att.content_type, att.content_transfer, att.content_id, 
                 att.filename, folder, att.size
             )
 
-            cursor: sqlite3.Cursor = self.folders['attachments'].cursor
-            cursor.execute(
-                """INSERT INTO attachments VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);""",
-                attach_ins_data
-            )
-            self.folders['attachments'].db.commit()
-            self.folders['attachments']._count += 1
+            if not self.fake:
+
+                cursor: sqlite3.Cursor = self.folders['attachments'].cursor
+                cursor.execute(
+                    """INSERT INTO attachments VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);""",
+                    attach_ins_data
+                )
+                self.folders['attachments'].db.commit()
+                self.folders['attachments']._count += 1
 
             compl_data[14].append(attach_ins_data)
 
